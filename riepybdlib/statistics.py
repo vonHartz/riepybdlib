@@ -4,8 +4,8 @@ Martijn Zeestraten, August 2016
 '''
 
 import numpy as np
-import pyriebdlib.manifold as rm
-import pyriebdlib.plot as fctplt
+import riepybdlib.manifold as rm
+import riepybdlib.plot as fctplt
 
 from copy import deepcopy
 from copy import copy

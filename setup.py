@@ -29,7 +29,7 @@ def gatherfiles(path,ext_list,fname):
                 dlist.append(tmp[0])
     return dlist
 
-dlist = gatherfiles(data_path,data_ext,'pyriebdlib/data')
+dlist = gatherfiles(data_path,data_ext,'riepybdlib/data')
 
 # Setup: 
 setup(name='riepybdlib',

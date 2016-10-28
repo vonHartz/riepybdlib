@@ -8,7 +8,7 @@ from matplotlib.path import Path
 import matplotlib.patches as patches
 import matplotlib.cm as cm
 
-import pyriebdlib.angular_representations as ar
+import riepybdlib.angular_representations as ar
 
 def plotRotation(ax, q, pos=np.zeros(3), length=1, alpha=1,color=None):
     R = q.R();

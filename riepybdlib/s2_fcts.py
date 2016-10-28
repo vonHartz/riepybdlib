@@ -5,8 +5,8 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.cm as cm
 
-import pyriebdlib.angular_representations as ar
-import pyriebdlib.manifold as rm
+import riepybdlib.angular_representations as ar
+import riepybdlib.manifold as rm
 
 
 

@@ -7,7 +7,7 @@ import numpy as np
 from copy import deepcopy
 from copy import copy
 
-import pyriebdlib.angular_representations as ar
+import riepybdlib.angular_representations as ar
 
 
 # ---------------- Manifold mapping functions
