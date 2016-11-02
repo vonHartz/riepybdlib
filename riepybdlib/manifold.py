@@ -638,7 +638,7 @@ class Manifold:
 
             return tupledata
         else:
-            raise RuntimeError('Unknown type {0} encoutered for swap'.print(type(data))) 
+            raise RuntimeError('Unknown type {0} encoutered for swap'.format(type(data))) 
 
     def swapto_listoftuple(self,data):
         ''' Swap data from list of tuples to tuple of lists'''
@@ -669,7 +669,7 @@ class Manifold:
 
             return elemlist
         else:
-            raise RuntimeError('Unknown type {0} encoutered for swap'.print(type(data))) 
+            raise RuntimeError('Unknown type {0} encoutered for swap'.format(type(data))) 
 
     def swap_btwn_tuplelist(self, data):
         ''' Swap between tuple of data points and list of tuples'''
@@ -680,7 +680,7 @@ class Manifold:
         elif type(data) is np.ndarray:
             return data
         else:
-            raise RuntimeError('Unknown type {0} encoutered for swap'.print(type(data))) 
+            raise RuntimeError('Unknown type {0} encoutered for swap'.format(type(data))) 
     
     def get_submanifold(self, i_man):
         ''' Returns a manifold that of the requested indices
