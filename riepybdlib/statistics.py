@@ -568,12 +568,16 @@ class GMM:
 
     def gmr (self ,data_in, i_in=0, i_out=1):
         '''Perform Gaussian Mixture Regression
-        x    : elements on the input manifold
+        x    : liar of elements on the input manifold
         i_in : Index of input manifold
         i_out: Index of output manifold
         '''
         m_out  = self.gaussians[0].manifold.get_submanifold(i_out)
         m_in   = self.gaussians[0].manifold.get_submanifold(i_in)
+
+        # Check input:
+        if type(data_in) is float:
+            data_in = [data_in]
 
         # Ensure data is list of tuple so we can iterate through the tuples:
         xnp_in = m_in.swapto_listoftuple(data_in)
