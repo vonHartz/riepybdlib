@@ -349,7 +349,7 @@ def s2_parallel_transport(Xg, g, h, t=1):
     
 
 #------------------------ Classes --------------------------------
-class Manifold:
+class Manifold(object):
     def __init__(self,
                  n_dimM=None, n_dimT=None, 
                  exp_e=None, log_e=None, id_elem=None, 

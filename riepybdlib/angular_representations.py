@@ -99,7 +99,7 @@ def skew(q):
                       [ q[2], 0   ,-q[0] ],
                       [-q[1], q[0], 0    ] ])
 
-class Quaternion:
+class Quaternion(object):
     def __init__(self,q0,q):
         '''
         a quaterion consist of a scalar q0 and a three dimensional vector q

@@ -12,7 +12,7 @@ from copy import copy
 
 
 # Statistical function:
-class Gaussian:
+class Gaussian(object):
     def __init__(self, mu, sigma, manifold):
         '''Initialize Gaussian on manifold'''
         self.manifold = manifold
