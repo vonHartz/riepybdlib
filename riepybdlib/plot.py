@@ -10,7 +10,7 @@ import matplotlib.cm as cm
 
 import riepybdlib.angular_representations as ar
 
-def plotRotation(ax, q, pos=np.zeros(3), length=1, alpha=1,color=None):
+def plotRotation(ax, q, pos=np.zeros(3), length=1, alpha=1,color=None,label='', **kwargs):
     R = q.R();
         
     cols = np.eye(3)
@@ -19,10 +19,12 @@ def plotRotation(ax, q, pos=np.zeros(3), length=1, alpha=1,color=None):
         xs = [0,R[i,0]*length] + pos[0]
         ys = [0,R[i,1]*length] + pos[1]
         zs = [0,R[i,2]*length] + pos[2]
+        if i==1:
+            label='' # Reset label to only let it appear once
         if color is None:
-            ax.plot(xs=xs, ys=ys, zs=zs, color=cols[i,], alpha=alpha)
+            ax.plot(xs=xs, ys=ys, zs=zs, color=cols[i,], label=label, alpha=alpha,**kwargs)
         else:
-            ax.plot(xs=xs, ys=ys, zs=zs, color=color, alpha=alpha)
+            ax.plot(xs=xs, ys=ys, zs=zs, color=color, label=label,alpha=alpha,**kwargs)
 
 def periodic_clip(val,n_min,n_max):
     ''' keeps val within the range [n_min, n_max) by assuming that val is a periodic value'''
