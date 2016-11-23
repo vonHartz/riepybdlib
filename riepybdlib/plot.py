@@ -16,9 +16,9 @@ def plotRotation(ax, q, pos=np.zeros(3), length=1, alpha=1,color=None,label='', 
     cols = np.eye(3)
         
     for i in range(3):
-        xs = [0,R[i,0]*length] + pos[0]
-        ys = [0,R[i,1]*length] + pos[1]
-        zs = [0,R[i,2]*length] + pos[2]
+        xs = [0,R[0,i]*length] + pos[0]
+        ys = [0,R[1,i]*length] + pos[1]
+        zs = [0,R[2,i]*length] + pos[2]
         if i==1:
             label='' # Reset label to only let it appear once
         if color is None:
