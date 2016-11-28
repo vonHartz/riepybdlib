@@ -217,3 +217,28 @@ def plot_gaussian_s2(ax,mu,sigma, color='red',linewidth=2, linealpha=1,planealph
     
     if showtangent:
         plot_tangentplane_s2(ax,mu,l_vert=1,color=color,alpha=planealpha, **kwargs)
+
+
+def computeCorrelationMatrix(sigma):
+    var = np.sqrt(np.diag(sigma))
+    return  sigma/var[None,:].T.dot(var[None,:])
+
+def plotCorrelationMatrix(sigma,labels=None,ax=None):
+    cormatrix = computeCorrelationMatrix(sigma)
+    n_var = sigma.shape[0]
+    if ax==None:
+        plt.figure(figsize=(4,3))
+        ax = plt.gca();
+
+    if labels is None:
+        labels = range(1,n_var+1)
+    h = ax.pcolor(cormatrix, cmap='RdBu',vmax=1,vmin=-1)
+    ax.invert_yaxis()
+    ax.xaxis.set_label_position('top')
+    ax.set_xticks(np.arange(0,n_var)+0.5)
+    ax.set_xticklabels(labels)
+    ax.set_yticks(np.arange(0,n_var)+0.5)
+    ax.set_yticklabels(labels)
+    plt.colorbar(h);            
+       
+
