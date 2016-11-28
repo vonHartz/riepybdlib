@@ -387,35 +387,53 @@ class Manifold(object):
         if manlist is not None:
             # None-root manifold (i.e. a product of manifolds)
             self.__manlist = []
-            for _,man in enumerate(manlist):
+            self.n_dimT = 0
+            self.n_dimM = 0
+            id_list = [] # List of identity elements
+            name = ''
+            for i,man in enumerate(manlist):
+                # Check existance of manifold and add to list
                 if type(man) is Manifold:
                     self.__manlist.append(man)
                 else:
                     raise RuntimeError('Non-manifold type found in manifold list.')
                     
-            # Sum dimensions & concatenate init values:
-            self.n_dimT = 0
-            self.n_dimM = 0
-            id_list = [] # List of identity elements
-            name = ''
-            for _, man in enumerate(manlist):
+                # Gather properties of cartesian product of manifolds:
                 self.n_dimT += man.n_dimT
                 self.n_dimM += man.n_dimM
                 id_list.append(man.id_elem)
                 # combine names:
-                name = '{0} {1}'.format(name, man.name)
+                if i > 0:
+                    name = '{0}, {1}'.format(name, man.name)
+                else:
+                    name = '{0}'.format(name)
             self.name = name
-            self.id_elem = tuple(id_list)
 
-            self.__fnptoman = self.np_to_manifold
-            self.__fmantonp = self.manifold_to_np
-            self.__fparalleltrans = self.parallel_transport
+            # Assign functions to manifold:
+            if len(manlist) > 1:
+                # If there are more manifold in the list, assign the public manifold functions:
+                self.id_elem = tuple(id_list)
+                self.__fnptoman = self.np_to_manifold
+                self.__fmantonp = self.manifold_to_np
+                self.__fparalleltrans = self.parallel_transport
+                self.__faction  = self.action
 
-            self.__faction  = self.action
+                # Mapping functions are defined recursively through the exp, and log functions of this manifold
+                self.__fexp = self.exp
+                self.__flog = self.log
+            else:
+                # If there is only one manifold in the list, we need to use the dedicated functions
+                self.id_elem = manlist[-1].id_elem 
+                self.__fnptoman = manlist[-1].np_to_manifold
+                self.__fmantonp = manlist[-1].manifold_to_np
+                self.__fparalleltrans = manlist[-1].parallel_transport
+                self.__faction  = manlist[-1].action
+
+                # Mapping functions are defined recursively through the exp, and log functions of this manifold
+                self.__fexp = manlist[-1].exp
+                self.__flog = manlist[-1].log
+
                         
-            # Mapping functions are defined recursively through the exp, and log functions of this manifold
-            self.__fexp = self.exp
-            self.__flog = self.log
             
         else:
             # Root manifold:
@@ -460,8 +478,8 @@ class Manifold(object):
             self.id_elem = id_elem
             self.n_dimT =n_dimT
             self.n_dimM =n_dimM
-            
-        self.name = name
+            self.name = name
+
         self.n_manifolds = len(self.__manlist)
         
     def __mul__(self,other):
@@ -604,7 +622,6 @@ class Manifold(object):
 
     def manifold_to_np(self,data):
         # Ensure that we can handle both single samples and arrays of samples:
-
         np_list = []
         if len(self.__manlist) == 1:
             npdata = self.__fmantonp(data)
@@ -620,7 +637,7 @@ class Manifold(object):
 
     def swapto_tupleoflist(self,data):
         ''' Swap data from tuples of list to list of tuples'''
-        if type(data) is tuple or type(data) is np.ndarray:
+        if (type(data) is tuple) or (type(data) is np.ndarray):
             # Do nothing, already ok
             return data
         elif type(data) is list:
@@ -693,7 +710,10 @@ class Manifold(object):
             manlist = []
             for _, ind in enumerate(i_man):
                 manlist.append(self.get_submanifold(ind))
-            return Manifold(manlist=manlist)
+            #if len(manlist)==1:
+            #   return manlist[-1] # Return single manifold
+            #lse:
+            return Manifold(manlist=manlist) # Return new combination of manifolds
         else:
             # Check input
             if i_man > len(self.__manlist):
