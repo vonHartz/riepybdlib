@@ -196,7 +196,7 @@ class Quaternion(object):
         else:
             raise RuntimeError('Argument is is of invalid type {0}'.format(type(self)))
 
-
+    @staticmethod
     def from_nparray(qarray):
         ''' Return list of Quaternions from an np array
         qarray: n_data x 4 numpy array in which each column is [q0, q1, q2, q3]
