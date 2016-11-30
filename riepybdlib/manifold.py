@@ -68,7 +68,7 @@ def quat_log_e(g, reg=1e-10):
     d_added = False
     if type(g) is list:
         # Batch mode:
-        g_np = ar.Quaternion.to_nparray(g)
+        g_np = ar.Quaternion.to_nparray_st(g)
     
         # Create tangent values, and initalize to zero
         g_tan = np.zeros( (g_np.shape[0], 3) )
