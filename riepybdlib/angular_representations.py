@@ -184,17 +184,19 @@ class Quaternion(object):
         Q = np.vstack((Q1,Q234))
         
         return Q
-    def to_nparray(self):
-        if type(self) is Quaternion:
-            return np.hstack( ([self.q0],self.q))
 
-        elif type(self) is list:
-            qarray = np.zeros( (len(self), 4) )
-            for i,q in enumerate(self):
+    @staticmethod
+    def to_nparray_st(data):
+        if type(data) is Quaternion:
+            return data.to_nparray()
+        else:
+            qarray = np.zeros( (len(data), 4) )
+            for i,q in enumerate(data):
                 qarray[i,:] = q.to_nparray()
             return qarray
-        else:
-            raise RuntimeError('Argument is is of invalid type {0}'.format(type(self)))
+
+    def to_nparray(self):
+            return np.hstack( ([self.q0],self.q))
 
     @staticmethod
     def from_nparray(qarray):

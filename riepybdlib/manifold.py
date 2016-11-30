@@ -764,7 +764,7 @@ def get_quaternion_manifold(name='Quaternion Manifold'):
                  exp_e=quat_exp_e, log_e=quat_log_e, id_elem=quat_id, 
                  name=name, 
                  f_nptoman= ar.Quaternion.from_nparray,
-                 f_mantonp= ar.Quaternion.to_nparray,
+                 f_mantonp= ar.Quaternion.to_nparray_st,
                  f_action= quat_action,
                  f_parallel_transport = quat_parallel_transport,
                  exp=quat_exp, log=quat_log # Add optional non-base maps that to provide more efficient computation
