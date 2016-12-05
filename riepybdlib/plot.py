@@ -1,14 +1,34 @@
 import numpy as np
 import scipy as sp
 import scipy.linalg 
+
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-
 from matplotlib.path import Path
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 import matplotlib.patches as patches
 import matplotlib.cm as cm
 
 import riepybdlib.angular_representations as ar
+
+def fRx(theta):
+
+    return np.array([[1, 0       , 0           ],
+                      [0, np.cos(theta),-np.sin(theta)],
+                      [0, np.sin(theta), np.cos(theta)]
+                     ])
+def fRy(theta):
+    return np.array([[np.cos(theta), 0 , np.sin(theta)],
+                      [0            , 1 , 0 ],
+                      [-np.sin(theta), 0 , np.cos(theta)]
+                     ])
+    
+def fRz(theta):
+    return np.array([[np.cos(theta), -np.sin(theta)  , 0],
+                      [np.sin(theta), np.cos(theta) , 0],
+                      [0            , 0           , 1]
+                    ])
+
 
 def plotRotation(ax, q, pos=np.zeros(3), length=1, alpha=1,color=None,label='', **kwargs):
     R = q.R();
@@ -25,6 +45,68 @@ def plotRotation(ax, q, pos=np.zeros(3), length=1, alpha=1,color=None,label='', 
             ax.plot(xs=xs, ys=ys, zs=zs, color=cols[i,], label=label, alpha=alpha,**kwargs)
         else:
             ax.plot(xs=xs, ys=ys, zs=zs, color=color, label=label,alpha=alpha,**kwargs)
+
+def plotquatCov(ax, q, sigma, pos=np.zeros(3), axlength=1, covscale=1,alpha=1,linewidth=1):
+    '''Plot rotation covariance '''
+    cols = np.eye(3)
+    Raxis = q.R()
+
+    # Plot axis:
+    for i in range(3):
+        xs = [0,Raxis[0,i]*axlength] + pos[0]
+        ys = [0,Raxis[1,i]*axlength] + pos[1]
+        zs = [0,Raxis[2,i]*axlength] + pos[2]
+        plt.plot(xs=xs, ys=ys, zs=zs, color=cols[i,], alpha=alpha,
+                linewidth=3)
+    
+    
+    # Plot Covariance:
+    n_drawingsegments = 30
+    t = np.linspace(-np.pi, np.pi, n_drawingsegments)
+    
+    R = sp.linalg.sqrtm(sigma*covscale)
+    for a in range(3):
+        if a==0:
+            Rx = fRx(np.pi/2)
+            tmp = np.vstack([np.zeros(n_drawingsegments),
+                      np.cos(t),
+                      np.sin(t)]).T
+            eo = tmp.dot( (Rx.dot(R)).T)
+        elif a==1:
+            Ry = fRy(np.pi/2)
+            tmp = np.vstack([
+                    np.cos(t),
+                    np.zeros(n_drawingsegments),
+                    np.sin(t)]).T
+            eo = tmp.dot( (Ry.dot(R)).T )
+        elif a==2:
+            Rz = fRz(np.pi/2)
+            tmp = np.vstack([
+                      np.cos(t),
+                      np.sin(t),
+                      np.zeros(n_drawingsegments)
+                      ]).T
+            eo = tmp.dot( (Rz.dot(R)).T )
+        
+        # Generate points for covariance
+        points = eo.dot(Raxis.T)+ Raxis[:,a]*axlength + pos
+        x = points[:,0]
+        y = points[:,1]
+        z = points[:,2]
+        
+        vertices = [[i for i in range(len(x))]]
+        tupleList = list(zip(x, y, z))
+
+        poly3d = [[tupleList[vertices[ix][iy]] for iy in range(len(vertices[0]))] for ix in range(len(vertices))]
+        collection = Poly3DCollection(poly3d, linewidths=1, alpha=0.2)
+        collection.set_facecolor(cols[a,])
+
+        ax.add_collection3d(collection)
+        ax.plot(x,y,z,color=cols[a,],linewidth=linewidth)
+        ax.plot(points[:,0], points[:,1], points[:,2],
+               color=cols[a,], linewidth=linewidth)
+
+
 
 def periodic_clip(val,n_min,n_max):
     ''' keeps val within the range [n_min, n_max) by assuming that val is a periodic value'''
@@ -241,4 +323,3 @@ def plotCorrelationMatrix(sigma,labels=None,ax=None):
     ax.set_yticklabels(labels)
     plt.colorbar(h);            
        
-
