@@ -364,12 +364,12 @@ class Gaussian(object):
         try:
             mu    = np.loadtxt('{0}_mu.txt'.format(name))
             sigma = np.loadtxt('{0}_sigma.txt'.format(name))
-        except err:
+        except Exception as err:
             print('Was not able to load Gaussian {0}.txt:'.format(name,err))
 
         try:
             mu = manifold.np_to_manifold(mu)
-        except err:
+        except Exception as err:
             print('Specified manifold is not compatible with loaded mean: {0}'.format(err))
         return Gaussian(mu,sigma,manifold)
 
