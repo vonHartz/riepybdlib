@@ -113,6 +113,8 @@ class Gaussian(object):
             # No weights given, equal weight for all points
             if type(x) is np.ndarray:
                 n_data = x.shape[0]
+            elif type(x) is list:
+                n_data = len(x)
             elif type(x[0]) is list:
                 n_data = len(x[0])
             elif type(x[0]) is np.ndarray :
@@ -147,6 +149,8 @@ class Gaussian(object):
             # Determine dimension of input
             if type(x) is np.ndarray:
                 n_data = x.shape[0]
+            elif type(x) is list:
+                n_data = len(x)
             elif type(x[0]) is list:
                 n_data = len(x[0])
             elif type(x[0]) is np.ndarray :
