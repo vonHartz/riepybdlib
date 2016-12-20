@@ -305,7 +305,7 @@ def computeCorrelationMatrix(sigma):
     var = np.sqrt(np.diag(sigma))
     return  sigma/var[None,:].T.dot(var[None,:])
 
-def plotCorrelationMatrix(sigma,labels=None,ax=None):
+def plotCorrelationMatrix(sigma,labels=None,ax=None,labelsize=20):
     cormatrix = computeCorrelationMatrix(sigma)
     n_var = sigma.shape[0]
     if ax==None:
@@ -321,5 +321,8 @@ def plotCorrelationMatrix(sigma,labels=None,ax=None):
     ax.set_xticklabels(labels)
     ax.set_yticks(np.arange(0,n_var)+0.5)
     ax.set_yticklabels(labels)
-    plt.colorbar(h);            
+    ax.tick_params(labelsize=labelsize)
+    l = plt.colorbar(h,ticks=[-1,0,1]);            
+    l.ax.set_yticklabels([r'$-1$',r'$0$',r'$1$'])
+    l.ax.tick_params(labelsize=labelsize)
        
