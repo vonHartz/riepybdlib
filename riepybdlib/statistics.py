@@ -113,6 +113,8 @@ class Gaussian(object):
             # No weights given, equal weight for all points
             if type(x) is np.ndarray:
                 n_data = x.shape[0]
+            elif type(x) is list:
+                n_data = len(x)
             elif type(x[0]) is list:
                 n_data = len(x[0])
             elif type(x[0]) is np.ndarray :
@@ -147,6 +149,8 @@ class Gaussian(object):
             # Determine dimension of input
             if type(x) is np.ndarray:
                 n_data = x.shape[0]
+            elif type(x) is list:
+                n_data = len(x)
             elif type(x[0]) is list:
                 n_data = len(x[0])
             elif type(x[0]) is np.ndarray :
@@ -352,6 +356,30 @@ class Gaussian(object):
         '''Get copy of Gaussian'''
         g_copy = Gaussian(deepcopy(self.mu),deepcopy(self.sigma),self.manifold)
         return g_copy
+
+    def save(self,name):
+        '''Write Gaussian parameters to files: name_mu.txt, name_sigma.txt'''
+        np.savetxt('{0}_mu.txt'.format(name),self.manifold.manifold_to_np(self.mu) )
+        np.savetxt('{0}_sigma.txt'.format(name),self.sigma)
+
+    @staticmethod
+    def load(name,manifold):
+        '''Load Gaussian parameters from files: name_mu.txt, name_sigma.txt'''
+        try:
+            mu    = np.loadtxt('{0}_mu.txt'.format(name))
+            sigma = np.loadtxt('{0}_sigma.txt'.format(name))
+        except Exception as err:
+            print('Was not able to load Gaussian {0}.txt:'.format(name,err))
+
+        try:
+            mu = manifold.np_to_manifold(mu)
+        except Exception as err:
+            print('Specified manifold is not compatible with loaded mean: {0}'.format(err))
+        return Gaussian(mu,sigma,manifold)
+
+
+
+
     
 
 
@@ -668,3 +696,22 @@ class GMM:
             l_list.append( gauss.plot_3d(base=base,ax=ax,ix=ix,iy=iy, iz=iz, **kwargs) )
 
         return l_list
+
+    def save(self,name):
+        for i,g in enumerate(self.gaussians):
+            g.save('{0}{1}'.format(name,i) )
+        np.savetxt('{0}_priors.txt'.format(name),self.priors)
+
+    @staticmethod
+    def load(name,n_components,manifold):
+        mygmm = GMM(n_components,manifold)
+        for i in range(n_components):
+            tmpg = Gaussian.load('{0}{1}'.format(name,i),manifold)
+            mygmm.gaussians[i]=tmpg
+        mygmm.priors = np.loadtxt('{0}_priors.txt'.format(name))
+        return mygmm
+        
+            
+
+
+

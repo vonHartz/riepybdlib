@@ -64,7 +64,7 @@ quat_id = ar.Quaternion(1, np.zeros(3) )
 def quat_action(x,g,h):
     return h*g.i()*x
 
-def quat_log_e(g, reg=1e-10):
+def quat_log_e(g, reg=1e-6):
     d_added = False
     if type(g) is list:
         # Batch mode:
@@ -95,7 +95,7 @@ def quat_log_e(g, reg=1e-10):
     
     
 # The exponential map:
-def quat_exp_e(g_tan, reg=1e-10):
+def quat_exp_e(g_tan, reg=1e-6):
     if g_tan.ndim == 2:
         # Batch mode:
         qnorm = np.linalg.norm(g_tan, axis=1)
@@ -127,10 +127,10 @@ def quat_exp_e(g_tan, reg=1e-10):
         else:
             return ar.Quaternion(1, np.zeros(3) )
 
-def quat_log(x,g, reg=1e-10):
+def quat_log(x,g, reg=1e-6):
     return quat_log_e(g.i()*x, reg)
 
-def quat_exp(x,g, reg=1e-10):
+def quat_exp(x,g, reg=1e-6):
     return g*quat_exp_e(x, reg)
 
 def quat_parallel_transport(Xg, g, h, t=1):
@@ -160,7 +160,7 @@ def quat_parallel_transport(Xg, g, h, t=1):
     m = np.linalg.norm(v) # Angle of rotation (or 'transport)
     
     # Compute Tangential rotation (this is done in n_dimM)
-    if m < 1e-10:
+    if m < 1e-6:
         Rgh = np.eye(4)
     else:
         u = (v/m)[:,None]
@@ -212,7 +212,7 @@ def s2_action(x, g, h):
 
     return x.dot(A.T)
 
-def s2_exp_e(g_tan, reg=1e-10):
+def s2_exp_e(g_tan, reg=1e-6):
     if g_tan.ndim ==2:
         # Batch operation:
     
