@@ -404,7 +404,7 @@ class Manifold(object):
                 id_list.append(man.id_elem)
                 # combine names:
                 if i > 0:
-                    name = '{0}, {1}'.format(name, man.name)
+                    name = '{0} x {1}'.format(name, man.name)
                 else:
                     name = '{0}'.format(man.name)
             self.name = name
