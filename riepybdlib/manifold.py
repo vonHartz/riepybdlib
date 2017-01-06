@@ -406,7 +406,7 @@ class Manifold(object):
                 if i > 0:
                     name = '{0}, {1}'.format(name, man.name)
                 else:
-                    name = '{0}'.format(name)
+                    name = '{0}'.format(man.name)
             self.name = name
 
             # Assign functions to manifold:
