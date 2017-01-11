@@ -139,16 +139,14 @@ def plot_gaussian(ax,mu,sigma, color='red',linewidth=2, linealpha=1,planealpha=0
     points = np.vstack( (np.cos(t), np.sin(t),np.ones(nbDrawingSeg)) )
     points = R.dot(points) 
     
-    pltargs = {key: value for key, value in kwargs.items()
-            if key in pybdplt.plot.co_varnames}
     
     l,= ax.plot(xs=mu[0,None], ys=mu[1,None], zs=mu[2,None], marker='.', 
-            color=color,alpha=linealpha, label=label, **pltargs) # Mean
+            color=color,alpha=linealpha, label=label,**kwargs) # Mean
 
     ax.plot(xs =points[0,:], ys=points[1,:], zs=points[2,:], 
             color=color, 
             linewidth=linewidth, 
-            markersize=2, alpha=linealpha,**pltargs) # Contour
+            markersize=2, alpha=linealpha,**kwargs) # Contour
     
     if showtangent:
         plot_tangentplane(ax,mu,l_vert=1,color=color,alpha=planealpha, **kwargs)
