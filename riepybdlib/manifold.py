@@ -350,6 +350,20 @@ def s2_parallel_transport(Xg, g, h, t=1):
 
 #------------------------ Classes --------------------------------
 class Manifold(object):
+    """ Riemannian Manifold Class
+
+    To specify a 'root' manifold one needs to provide:
+    n_dimM : Dimension of Manifold space
+    n_dimT : Dimension of Tangent space
+    exp    : Exponential function that maps elements from the tangent space to the manifold
+    log    : Logarithmic function that maps elements from the manifold to the tangent space
+    init   : (optional) an initialiation element
+    And optionally:
+    f_nptoman: A function that defines how a np array of numbers is tranformed into a manifold element
+    If these parameters are not provides, some of the functions of the manifold don't work
+
+    Alternatively one can create a composition of root manifolds by providing a list of manifolds
+    """
     def __init__(self,
                  n_dimM=None, n_dimT=None, 
                  exp_e=None, log_e=None, id_elem=None, 
@@ -359,19 +373,6 @@ class Manifold(object):
                  f_parallel_transport= None,
                  exp=None, log=None
                  ):
-        '''
-        To specify a 'root' manifold one needs to provide:
-        n_dimM : Dimension of Manifold space
-        n_dimT : Dimension of Tangent space
-        exp    : Exponential function that maps elements from the tangent space to the manifold
-        log    : Logarithmic function that maps elements from the manifold to the tangent space
-        init   : (optional) an initialiation element
-        And optionally:
-        f_nptoman: A function that defines how a np array of numbers is tranformed into a manifold element
-        If these parameters are not provides, some of the functions of the manifold don't work
-        
-        Alternatively one can create a composition of root manifolds by providing a list of manifolds
-        '''
         
         # Check input
         if  ( ((n_dimM is None) and (n_dimT is None) and 
@@ -483,10 +484,7 @@ class Manifold(object):
         self.n_manifolds = len(self.__manlist)
         
     def __mul__(self,other):
-        '''The product operator specifies the indirect product of the manifolds
-        The implementation simply means 'stacking' the manifolds
-        
-        '''
+        '''Implementation of the Cartesian products of Manifolds'''
         manlist = [] 
         for _,item in enumerate(self.__manlist):
             manlist.append(item)
@@ -496,14 +494,21 @@ class Manifold(object):
         return Manifold(manlist=manlist)
         
     def exp(self,g_tan, base=None, reg=1e-10):
-        '''Convert element on Tangent space defined by base to element on Manifold
-        base : tuple that represents the base of the tangent plane
-        g_tan: n_data x n_dimT array
+        ''' Manifold Exponential map
+
+        Arguments
+        g_tan: n_data x n_dimT array of tangent vectors
+        base : tangent space base 
+
+        Keyword arguments:
+        reg  : Regularization term for exponential map
         '''
-        # Single Manifolds will not have base in tuple form, adopt:
+
+        # If base is not specified, use the id-element of the manifold:
         if base is None:
             base = self.id_elem
 
+        # Single Manifolds will not have base in tuple form, adopt:
         if type(base) is not tuple:
             base = tuple([base])
 
@@ -516,7 +521,7 @@ class Manifold(object):
         tmp = []
         ind = 0
         for i,man in enumerate(self.__manlist):
-            g_tmp = man.__fexp(g_tan[:,np.arange( man.n_dimT ) + ind ], base[i], reg=1e-10 )
+            g_tmp = man.__fexp(g_tan[:,np.arange( man.n_dimT ) + ind ], base[i], reg=reg)
             if d_added:
                 # Remove additional dimension
                 tmp.append(g_tmp[0])
@@ -530,7 +535,16 @@ class Manifold(object):
             return  tuple(tmp)
             
     def log(self,g, base=None, reg=1e-10):
-        '''Convert element on Manifold to element on Tangent space defined by base'''
+        '''Manifold Logarithmic map
+
+        Arguments
+        g    : tuple of list 
+        base : tangent space base 
+
+        Keyword arguments:
+        reg  : Regularization term for exponential map
+        
+        '''
         # Single Manifolds will not have base in tuple form, adopt:
         if base is None:
             base = self.id_elem
@@ -599,7 +613,7 @@ class Manifold(object):
             return  Xh
     
     def np_to_manifold(self, data):
-        '''Transfrom the nparray in a tuple of manifold elements
+        '''Transfrom nparray in a tuple of manifold elements
         data: n_data x n_dimM  array
         output: tuple( M1, M2, ..., Mn), in which M1 is a list of manifold elements
        
@@ -621,6 +635,7 @@ class Manifold(object):
             return tuple(tmp) 
 
     def manifold_to_np(self,data):
+        ''' Transform manifold data into a numpy array'''
         # Ensure that we can handle both single samples and arrays of samples:
         np_list = []
         if len(self.__manlist) == 1:
