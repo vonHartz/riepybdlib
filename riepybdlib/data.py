@@ -3,6 +3,8 @@ from pkg_resources import resource_filename
 import random
 import string
 
+import riepybdlib.manifold as rm
+
 import scipy.io as sio
 import numpy as np
 
@@ -68,6 +70,31 @@ def get_letter_data(letter='', n_samples = -1, n_derivs=0,use_time=True, tmax=10
         # rows of data points
         data.append(tmp.T)
     return data
+
+def get_letter_dataS2(letter='', n_samples = -1, use_time=True,base=np.array([0,-1,0]), scale=0.1):
+    ''' Get a letter projected on the manifold S2'''
+
+    if use_time==True:
+        man = rm.get_euclidean_manifold(1)*rm.get_s2_manifold()
+    else:
+        man = rm.get_s2_manifold()
+
+    # Get letter data in 2D euclidean space
+    data = get_letter_data(letter=letter,n_samples=n_samples,n_derivs=0,use_time=use_time,tmax=10)
+
+    # Define projection base:
+    mybase=man.id_elem
+    if base is not None and use_time==False:
+        mybase=base
+    elif base is not None and use_time==True:
+        mybase = (mybase[0],base)
+
+    # Project data:
+    m_data = []
+    for d in data:
+        m_data.append( man.swapto_listoftuple(man.exp(d*scale,mybase)) )
+    return m_data
+
 
 def get_tp_frommat(praw,use_time=False):
     plib = []
