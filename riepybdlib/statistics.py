@@ -86,6 +86,7 @@ class Gaussian(object):
 
         self.mu    = self.__empirical_mean(x, h)       
         self.sigma = self.__empirical_covariance(x, h, reg_lambda)
+        return self
 
 
     def __empirical_mean(self, x, h=None):
