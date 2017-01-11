@@ -83,6 +83,7 @@ class Gaussian(object):
         h         : optional list of weights
         reg_lambda: Shrinkage regularization factor (1=fully shrink, 0=don't shrink)
         '''
+        x = self.manifold.swapto_tupleoflist(x)
 
         self.mu    = self.__empirical_mean(x, h)       
         self.sigma = self.__empirical_covariance(x, h, reg_lambda)
