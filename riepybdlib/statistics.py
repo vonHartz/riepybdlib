@@ -13,17 +13,24 @@ from copy import copy
 
 # Statistical function:
 class Gaussian(object):
-    def __init__(self, mu, sigma, manifold):
+    def __init__(self, manifold, mu=None, sigma=None):
         '''Initialize Gaussian on manifold'''
         self.manifold = manifold
 
-        # Check dimensionality:
-        if (sigma.shape[0] != manifold.n_dimT or
+        if mu is None:
+            # Default initialization
+            self.mu = manifold.id_elem
+        else:
+            self.mu = mu 
+
+        if sigma is None:
+            # Default initialization
+            self.sigma = np.eye(manifold.n_dimT)
+        elif (sigma.shape[0] != manifold.n_dimT or
             sigma.shape[1] != manifold.n_dimT):
             raise RuntimeError('Dimensions of sigma do not match Manifold')
-
-        self.mu = mu 
-        self.sigma = sigma
+        else:
+            self.sigma = sigma
         
     def prob(self,data):
         '''Evaluate probability of sample
@@ -68,7 +75,7 @@ class Gaussian(object):
         ran  = self.manifold.get_tangent_indices(i_in)
         sigma_m = self.sigma[np.ix_(ran,ran)]
         
-        return Gaussian(mu_m, sigma_m, self.manifold.get_submanifold(i_in) )
+        return Gaussian(self.manifold.get_submanifold(i_in),mu_m, sigma_m  )
 
     def mle(self, x, h=None, reg_lambda=1e-3):
         '''Maximum Likelihood Estimate
@@ -247,7 +254,7 @@ class Gaussian(object):
 
         sigma_xo = np.linalg.inv(lambda_oo)
 
-        return Gaussian(x_o, sigma_xo, man_out)
+        return Gaussian(man_out, x_o, sigma_xo)
 
     def __mul__(self,other):
         '''Compute the product of Gaussian''' 
@@ -293,23 +300,7 @@ class Gaussian(object):
                 print('Product did not converge in {0} iterations.'.format(max_it) )
                 break
 
-        return Gaussian(mu,sigma,self.manifold)
-
-#    def action(self, h):
-#        ''' Move origin of Gaussian to h'''
-#
-#        g = self.mu # Current origin:
-#
-#        D, Utg  = np.linalg.eig(self.sigma)
-#        Ug      = self.manifold.exp(Utg.T*1e-1, g)  # Project onto manifold
-#        Uh      = self.manifold.action(Ug, g, h)    # Perform action
-#        Uth     = self.manifold.log(Uh, h).T*1e1    # Project to tangent space of h
-#        sigma_h = Uth.dot(np.diag(D).dot(Uth.T))    # Reconstruct manifold
-#
-#        self.mu = h
-        
-
-#        return Gaussian(h,sigma_h, self.manifold)
+        return Gaussian(self.manifold, mu,sigma)
 
     def tangent_action(self,A):
         ''' Perform Transformation A, to the tangent space of the Gaussian'''
@@ -354,7 +345,7 @@ class Gaussian(object):
 
     def copy(self):
         '''Get copy of Gaussian'''
-        g_copy = Gaussian(deepcopy(self.mu),deepcopy(self.sigma),self.manifold)
+        g_copy = Gaussian(self.manifold, deepcopy(self.mu),deepcopy(self.sigma))
         return g_copy
 
     def save(self,name):
@@ -375,7 +366,7 @@ class Gaussian(object):
             mu = manifold.np_to_manifold(mu)
         except Exception as err:
             print('Specified manifold is not compatible with loaded mean: {0}'.format(err))
-        return Gaussian(mu,sigma,manifold)
+        return Gaussian(manifold, mu,sigma)
 
 
 
@@ -395,7 +386,7 @@ class GMM:
         
         self.gaussians = []
         for i in range(n_components):
-            self.gaussians.append( Gaussian(mu0,sigma0,manifold))
+            self.gaussians.append( Gaussian(manifold,mu0,sigma0))
             
         self.n_components = n_components
         self.priors = np.ones(n_components)/n_components
@@ -669,7 +660,7 @@ class GMM:
             #    sigma_gmr += h[n,i]*(  gc_list[i].sigma 
             #                         + dtmp.dot(dtmp.T) 
             #                        )
-            gmr_list.append( Gaussian( mu_gmr, sigma_gmr, m_out))
+            gmr_list.append( Gaussian(m_out, mu_gmr, sigma_gmr))
             
         return gmr_list
 
