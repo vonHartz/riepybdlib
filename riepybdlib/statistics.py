@@ -381,7 +381,7 @@ class GMM:
     This child implements additional initialization algorithms
 
     '''
-    def __init__(self,n_components, manifold, base=None):
+    def __init__(self, manifold, n_components, base=None):
         '''Create GMM'''
         mu0 = manifold.id_elem
         sigma0 = np.eye(manifold.n_dimT)
@@ -410,6 +410,8 @@ class GMM:
     def fit(self, data, convthres=1e-5, maxsteps=100, minsteps=5, reg_lambda=1e-3):
         '''Initialize trajectory GMM using a time-based approach'''
             
+        # Make sure that the data is a tuple of list:
+        data = self.manifold.swapto_tupleoflist(data)
         n_data = len(data)
         
         prvlik = 0
@@ -437,7 +439,7 @@ class GMM:
                 avg_loglik.append(avglik)
                 prvlik = avglik
         if (st+1) >= maxsteps:
-             print('EM did not converge')
+             print('EM did not converge in {0} steps'.format(maxsteps))
             
         return lik, avg_loglik
 
@@ -461,6 +463,9 @@ class GMM:
 
     
     def kmeans(self,data, maxsteps=100):
+
+        # Make sure that data is tuple of lists
+        data = self.manifold.swapto_tupleoflist(data)
 
         # Init means
         npdata = self.manifold.manifold_to_np(data)
@@ -617,8 +622,15 @@ class GMM:
             # Compute conditioned elements:
             gc_list = []
             muc_list = []
-            for _, gauss in enumerate(self.gaussians):
-                gc_list.append(gauss.condition(xnp_in[n], i_in=i_in, i_out=i_out))
+            for i, gauss in enumerate(self.gaussians):
+                # Only compute conditioning for states that have a significant influence
+                # Do this to prevent convergence errors
+                if h[n,i]>1e-5:
+                    # weight is larger than 1e-3
+                    gc_list.append(gauss.condition(xnp_in[n], i_in=i_in, i_out=i_out))
+                else:
+                    # No signnificant weight, just store the margin 
+                    gc_list.append(gauss.margin(i_out))
                 # Store the means in np array:
                 muc_list.append(gc_list[-1].mu)
 
