@@ -184,5 +184,47 @@ def get_tp_data(use_time=False):
     
     return (data,data0,TPs,data_info)
 
+def get_tp_dataS2(use_time=False,base=None):
+
+    m_s2 = rm.get_s2_manifold()
+    m_time = rm.get_euclidean_manifold(1)
+    if use_time==True:
+        man = m_time*m_s2
+    else:
+        man = m_s2
+
+    # Define projection base:
+    mybase=man.id_elem
+    if base is not None and use_time==False:
+        mybase=base
+    elif base is not None and use_time==True:
+        mybase = (mybase[0],base)
+
+     # ----- Load Data------
+    (data, data0, TPs, data_info) = get_tp_data(use_time=use_time)
+
+
+    # Put data into manifold structure:
+    f_data = []
+    n_frames = data_info['n_frames']
+    n_data   = data_info['n_data']
+    n_samples = data_info['n_samples']
+
+    for f in range(0,n_frames):
+        dems = []
+        for n in range(0,n_samples):
+            ind = np.arange(0,n_data) + n_data*n
+            tmp = []
+            if use_time:
+                tmp.append( data[0,ind,0] )  # Add time
+            tmp.append( m_s2.exp(data[f,ind,1:]*10e-1, base).T ) 
+            tmp = man.np_to_manifold(np.vstack(tmp).T)
+            dems.append( man.swapto_listoftuple(tmp) )
+            
+        f_data.append(dems)
+
+    return (f_data,TPs,data_info)
+
+
 
 
