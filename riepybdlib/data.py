@@ -1,3 +1,36 @@
+'''
+Writing code takes time. Polishing it and making it available to others takes longer! 
+If some parts of the code were useful for your research of for a better understanding 
+of the algorithms, please reward the authors by citing the related publications, 
+and consider making your own research available in this way.
+
+@article{Zeestraten2017,
+  	title = {An Approach for Imitation Learning on Riemannian Manifolds},
+	author = {Zeestraten, M.J.A. and Havoutis, I. and Silverio, J. and Calinon, S. and Caldwell, D. G.},
+	journal={{IEEE} Robotics and Automation Letters ({RA-L})},
+	year = {2017},
+	month={January},
+}
+
+ 
+Copyright (c) 2017 Istituto Italiano di Tecnologia, http://iit.it/
+Written by Martijn Zeestraten, http://www.martijnzeestraten.nl/
+
+This file is part of RiePybDlib, http://gitlab.martijnzeestraten.nl/martijn/riepybdlib
+
+RiePybDlib is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License version 3 as
+published by the Free Software Foundation.
+ 
+RiePybDlib is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with RiePybDlib. If not, see <http://www.gnu.org/licenses/>.
+'''
+
 from pkg_resources import resource_listdir
 from pkg_resources import resource_filename
 import random
