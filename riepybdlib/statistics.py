@@ -444,6 +444,13 @@ class GMM:
         return lik, avg_loglik
 
     def init_time_based(self,t,data, reg_lambda=1e-3):
+
+        if t.ndim==2:
+            t = t[:,0] # Drop last dimension
+
+
+        # Ensure data is tuple of lists
+        data = self.manifold.swapto_tupleoflist(data)
         
         # Timing seperation:
         timing_sep = np.linspace(t.min(), t.max(),self.n_components+1)
@@ -565,7 +572,7 @@ class GMM:
     
     def margin(self, i_in):
         # Construct new GMM:
-        newgmm = GMM(self.n_components, self.manifold.get_submanifold(i_in) )
+        newgmm = GMM(self.manifold.get_submanifold(i_in), self.n_components)
 
         # Copy priors
         newgmm.priors = self.priors
@@ -577,7 +584,7 @@ class GMM:
             
     
     def copy(self):
-        copygmm = GMM(self.n_components,self.manifold)
+        copygmm = GMM(self.manifold, self.n_components)
         for i,gauss in enumerate(self.gaussians):
             copygmm.gaussians[i] = gauss.copy()
         copygmm.priors = deepcopy(self.priors)
@@ -709,7 +716,7 @@ class GMM:
 
     @staticmethod
     def load(name,n_components,manifold):
-        mygmm = GMM(n_components,manifold)
+        mygmm = GMM(manifold, n_components)
         for i in range(n_components):
             tmpg = Gaussian.load('{0}{1}'.format(name,i),manifold)
             mygmm.gaussians[i]=tmpg
