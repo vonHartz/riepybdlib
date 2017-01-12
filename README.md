@@ -3,7 +3,7 @@ Programming-by-Demonstration library for Riemannian Manifolds.
 # Reference
 Did you find RiePybDlib usefull for your research? Please acknowledge the authors in any acedemic publication that used parts of these codes.
 
-'''
+```
 @article{Zeestraten2017,
   	title = {An Approach for Imitation Learning on Riemannian Manifolds},
 	author = {Zeestraten, M.J.A. and Havoutis, I. and Silverio, J. and Calinon, S. and Caldwell, D. G.},
@@ -11,8 +11,7 @@ Did you find RiePybDlib usefull for your research? Please acknowledge the author
 	year = {2017},
 	month={January},
 }
-'''
-
+```
 
 # Installation
 Install system wide:
