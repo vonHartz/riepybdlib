@@ -14,14 +14,39 @@ Did you find RiePybDlib usefull for your research? Please acknowledge the author
 ```
 
 # Installation
-Install system wide:
-~~~
+
+## Python2.7:
+
+Install the required dependencies:
+```
+sudo apt-get update
+sudo apt-get install git
+sudo apt-get install python-numpy python-scipy python-matplotlib ipython 
+```
+
+Clone and install riepybdlib:
+```
+git clone https://gitlab.martijnzeestraten.nl/martijn/riepybdlib.git
+cd riepybdlib
+sudo python setup.py install
+```
+
+## Python3.x: 
+Install the required dependencies:
+```
+sudo apt-get update
+sudo apt-get install git
+sudo apt-get install python3-numpy python3-scipy python3-matplotlib ipython3 
+```
+Clone and install riepybdlib:
+```
+git clone https://gitlab.martijnzeestraten.nl/martijn/riepybdlib.git
+cd riepybdlib
 sudo python3 setup.py install
-~~~
+
 
 # Compatability
 The code is developed to work with with both Python 2.7 and Python 3.x. Please report any compatabilty issues.
-
 
 # Licence
 RiePybDlib is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License version 3 as published by the Free Software Foundation.
