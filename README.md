@@ -3,7 +3,7 @@ This repository contains a Programming-by-Demonstration library for Riemannian M
 
 - [Installation](#installation)
 - [Reference](#reference)
-- [Compatability](#compatability)
+- [Compatibility](#compatibility)
 - [Licence](#licence)
 
 A quick tutorial on how to use the library can be found via:
@@ -54,7 +54,7 @@ Did you find RiePybDlib usefull for your research? Please acknowledge the author
 }
 ```
 
-# Compatability
+# Compatibility
 The code is developed to work with with both Python 2.7 and Python 3.x. Please report any compatabilty issues.
 
 # Licence
