@@ -32,7 +32,6 @@ along with RiePybDlib. If not, see <http://www.gnu.org/licenses/>.
 '''
 
 import numpy as np
-import sympy as sp
 
 
 ########################### EULER ANGLES #############################################################
@@ -43,85 +42,21 @@ import sympy as sp
 
 def fRx(theta):
 
-    return sp.Matrix([[1, 0       , 0           ],
-                      [0, sp.cos(theta),-sp.sin(theta)],
-                      [0, sp.sin(theta), sp.cos(theta)]
+    return np.array([[1, 0       , 0           ],
+                      [0, np.cos(theta),-np.sin(theta)],
+                      [0, np.sin(theta), np.cos(theta)]
                      ])
 def fRy(theta):
-    return sp.Matrix([[sp.cos(theta), 0 , sp.sin(theta)],
+    return np.array([[np.cos(theta), 0 , np.sin(theta)],
                       [0            , 1 , 0 ],
-                      [-sp.sin(theta), 0 , sp.cos(theta)]
+                      [-np.sin(theta), 0 , np.cos(theta)]
                      ])
     
 def fRz(theta):
-    return sp.Matrix([[sp.cos(theta), -sp.sin(theta)  , 0],
-                      [sp.sin(theta), sp.cos(theta) , 0],
+    return np.array([[np.cos(theta), -np.sin(theta)  , 0],
+                      [np.sin(theta), np.cos(theta) , 0],
                       [0            , 0           , 1]
                     ])
-
-R_dict = {'x': fRx,'y': fRy, 'z': fRz}
-ax_dict = {'x': 0  ,'y': 1  , 'z': 2}
-
-def getEulerR(anglespec):
-    R = sp.eye(3)
-    for ind,(ax,symbol) in (enumerate(anglespec)):
-        R *= R_dict[ax](symbol)
-    return R
-
-def EulerToBodyW(anglespec):
-    ''' function te create the mapping b between Euler Angles 
-    and Body Fixed Angular velocities, i.e.
-      w' = b*angles
-    
-    where w are the angular velocities and angles is a list of euler angles
-    
-    '''
-    # dictionary with rotation functions for different axis
-    
-    B = sp.zeros( 3,len(anglespec) ) 
-    R = sp.eye(3)                     
-    
-    for ind,(ax,symbol) in reversed(list(enumerate(anglespec))):
-        # index selector:
-        tmp = sp.zeros( 3, len(anglespec))
-        tmp[ ax_dict[ax], ind] = 1
-        
-        B += R*tmp # Stack transformation
-        
-        # Stack Rotation for next iteration:
-        R *= R_dict[ax](symbol).T
-        
-    return B
-
-
-def EulerToWorldW(anglespec):
-    ''' function te create the mapping b between Euler Angles 
-    and World Fixed Angular velocities, i.e.
-      w = b*angles
-    
-    where w are the angular velocities and angles is a list of euler angles
-    
-    '''
-    # dictionary with rotation functions for different axis
-    Rdict = {'x': fRx,'y': fRy, 'z': fRz}
-    Adict = {'x': 0  ,'y': 1  , 'z': 2}
-    
-    B = sp.zeros( 3,len(anglespec) )
-    R = sp.eye(3)
-    
-    n = len(anglespec)
-    for ind,(ax,symbol) in enumerate(anglespec):
-        # index selector:
-        tmp = sp.zeros(3, len(anglespec))
-        tmp[Adict[ax],ind] = 1
-        
-        # add to transformation
-        B += R*tmp
-        
-        # compute rotation for next iteration:
-        R *= Rdict[ax](symbol)
-        
-    return B
 
 
 ################################### QUATERNIONS 
