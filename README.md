@@ -55,7 +55,7 @@ Did you find RiePybDlib usefull for your research? Please acknowledge the author
 ```
 
 # Compatibility
-The code is developed to work with with both Python 2.7 and Python 3.x. Please report any compatabilty issues.
+The code is developed to work with with both Python 2.7 and Python 3.x. Please report any compatibility issues.
 
 # Licence
 RiePybDlib is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License version 3 as published by the Free Software Foundation.
