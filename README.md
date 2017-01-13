@@ -1,17 +1,13 @@
-Programming-by-Demonstration library for Riemannian Manifolds.
+# RiePybDlib
+This repository contains a Programming-by-Demonstration library for Riemannian Manifolds.
 
-# Reference
-Did you find RiePybDlib usefull for your research? Please acknowledge the authors in any acedemic publication that used parts of these codes.
+- [Installation](#installation)
+- [Reference](#reference)
+- [Compatability](#compatability)
+- [Licence](#licence)
 
-```
-@article{Zeestraten2017,
-  	title = {An Approach for Imitation Learning on Riemannian Manifolds},
-	author = {Zeestraten, M.J.A. and Havoutis, I. and Silverio, J. and Calinon, S. and Caldwell, D. G.},
-	journal={{IEEE} Robotics and Automation Letters ({RA-L})},
-	year = {2017},
-	month={January},
-}
-```
+A quick tutorial on how to use the library can be found via:
+https://www.martijnzeestraten.nl/media/html/riepybdlib_tutorial.html
 
 # Installation
 
@@ -43,7 +39,20 @@ Clone and install riepybdlib:
 git clone https://gitlab.martijnzeestraten.nl/martijn/riepybdlib.git
 cd riepybdlib
 sudo python3 setup.py install
+```
 
+# Reference
+Did you find RiePybDlib usefull for your research? Please acknowledge the authors in any acedemic publication that used parts of these codes.
+
+```
+@article{Zeestraten2017,
+  	title = {An Approach for Imitation Learning on Riemannian Manifolds},
+	author = {Zeestraten, M.J.A. and Havoutis, I. and Silverio, J. and Calinon, S. and Caldwell, D. G.},
+	journal={{IEEE} Robotics and Automation Letters ({RA-L})},
+	year = {2017},
+	month={January},
+}
+```
 
 # Compatability
 The code is developed to work with with both Python 2.7 and Python 3.x. Please report any compatabilty issues.
