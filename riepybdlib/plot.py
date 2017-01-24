@@ -203,10 +203,10 @@ def plot_gaussian_2d(mu, sigma, ax=None,
             )
     ax.add_patch(polygon)                     # Patch
 
-    pltargs = {key: value for key, value in kwargs.items()
-            if key in ax.co_varnames}
-    l,= ax.plot(mu[0], mu[1], '.', color=color, label=label, **pltargs) # Mean
-    ax.plot(points[0,:], points[1,:], color=color, linewidth=linewidth, markersize=2,**pltargs) # Contour
+    #pltargs = {key: value for key, value in kwargs.items()
+    #        if key in ax.co_varnames}
+    l,= ax.plot(mu[0], mu[1], '.', color=color, label=label, markersize=2) # Mean
+    ax.plot(points[0,:], points[1,:], color=color, linewidth=linewidth, markersize=2) # Contour
 
     return l
 
