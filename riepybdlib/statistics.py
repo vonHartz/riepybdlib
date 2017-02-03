@@ -600,6 +600,13 @@ class GMM:
 
         mus_new = man.swapto_listoftuple(mus_new)
         for i,_ in enumerate(self.gaussians):
+            # assign new base
+            # To compensate for the mis-alignment of the tangent bases cause by 
+            # moving the origin of the GMM from e to h, we need to apply a correction each
+            # Gaussian. 
+            # We do this by parallel transporting each Gaussian from h (the new base), to the new
+            # mean location. 
+            self.gaussians[i].mu = self.base 
             self.gaussians[i].parallel_transport(mus_new[i])
     
     def margin(self, i_in):
