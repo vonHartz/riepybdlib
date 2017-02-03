@@ -372,7 +372,7 @@ class Gaussian(object):
         if base is None:
             base = self.manifold.id_elem
             
-        mu = self.manifold.log(base,self.mu)[ [ix,iy,iz] ]
+        mu = self.manifold.log(self.mu, base)[ [ix,iy,iz] ]
         sigma = self.sigma[ [ix, iy, iz], :][:, [ix, iy, iz] ]
 
         return fctplt.plot_gaussian_3d(mu, sigma, ax=ax, **kwargs)
