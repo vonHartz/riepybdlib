@@ -590,12 +590,6 @@ class GMM:
         mulist = man.swapto_tupleoflist(mulist)
         mus_new = man.action(mulist, self.base, h)
         self.base = h # Set new base for GMM
-        
-        # Compute new mu locations of of all Gaussian
-        #mu_tan = man.log(mulist,self.base)                    # project in tangent space
-        #mu_tan = man.parallel_transport(mu_tan, self.base, h) # parallel transport
-        #mu_trans = man.exp(mu_tan, h)                         # project to manifold
-        #mu_trans = man.manifold_to_np(mu_trans)               # Transform to np array to separate mus
 
         mus_new = man.swapto_listoftuple(mus_new)
         for i,_ in enumerate(self.gaussians):
