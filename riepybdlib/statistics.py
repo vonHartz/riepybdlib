@@ -573,7 +573,6 @@ class GMM:
         # Update gaussian
         mus_new = man.swapto_listoftuple(mus_new)
         for i, _ in enumerate(self.gaussians):
-            self.gaussians[i].parallel_transport(mus_new[i])
             self.gaussians[i].tangent_action(A)
 
 
