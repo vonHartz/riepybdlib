@@ -213,82 +213,96 @@ class Gaussian(object):
         #    sigma += h[i]*tmp.dot(tmp.T)
             
         # Perform Shrinkage regularizaton:
-        #return reg_lambda*np.diag(np.diag(sigma)) + (1-reg_lambda)*sigma
-        return sigma + reg_lambda*np.eye(len(sigma))
-        
+        return reg_lambda*np.diag(np.diag(sigma)) + (1-reg_lambda)*sigma
+        #return sigma + reg_lambda*np.eye(len(sigma))
+
     def condition(self, val, i_in=0, i_out=1):
         '''Gaussian Conditioniong
-        val  : Element on submanifold i_in
+        val  : (list of) elements on submanifold i_in
         i_in : index of  the input sub-manifold
         i_out: index of the sub-manifold to output
         '''
-        x_i = val
-        
-        # Get submanifolds:
-        man_in = self.manifold.get_submanifold(i_in)
-        man_out = self.manifold.get_submanifold(i_out)
-        
-        # Get tangent indices:
-        ran_in = self.manifold.get_tangent_indices(i_in)
-        ran_out = self.manifold.get_tangent_indices(i_out)
-        
-        # Create sub-manifold from the individual manifolds:
-        man = man_in*man_out
+
+        ## ----- Pre-Processing:
+        # Convert indices to list:
+        if type(i_in) is not list:
+            i_in = [i_in]
+        if type(i_out) is not list:
+            i_out = [i_out]
+
+        # Marginalize Gaussian to related manifolds
+        # Here we create a structure [i_in, iout]
+        i_total = [i for ilist in [i_in,i_out] for i in ilist]
+        gtmp = self.margin(i_total)
+
+        # Construct new indices:
+        i_in  = list(range(len(i_in)))
+        i_out = list(range(len(i_in),len(i_in) + len(i_out)))
+
+        # Get related manifold
+        man     = gtmp.manifold
+        man_in  = man.get_submanifold(i_in)
+        man_out = man.get_submanifold(i_out)
 
         # Seperate Mu:
         # Compute index:
-        if type(i_in) is list:
-            mu_i = tuple([ self.mu[i] for _,i in enumerate(i_in)])
-        else:
-            mu_i = self.mu[i_in]
+        mu_i = gtmp.margin(i_in).mu
+        mu_o = gtmp.margin(i_out).mu
 
-        if type(i_out) is list:
-            mu_o = tuple([ self.mu[i] for _,i in enumerate(i_out)])
-        else:
-            mu_o = self.mu[i_out]
+        # Compute lambda and split:
+        Lambda    = np.linalg.inv(gtmp.sigma)
 
-        mu= (mu_i, mu_o)
+        ran_in  = man.get_tangent_indices(i_in)
+        ran_out = man.get_tangent_indices(i_out)
+        Lambda_ii = Lambda[np.ix_(ran_in,ran_in)]
+        Lambda_oi = Lambda[np.ix_(ran_out,ran_in)]
+        Lambda_oo = Lambda[np.ix_(ran_out,ran_out)]
+
+
+        # Convert input values to correct values:
+        if type(val) is np.ndarray:
+            if val.ndim==1:
+                val = val[None,:]
+            # Convert to list of points:
+            val = [val[i,:] for i in range(val.shape[0])]
+        elif type(val) is tuple:
+            # Ensure that we have list representation for tuples:
+            val = man_in.swapto_listoftuple(val)
+        elif type(val) is not list:
+            val = [val]
         
-        # Compute lambda:
-        Lambda = np.linalg.inv(self.sigma)
-
-        x_o = mu_o # Initial guess
-        it=0; diff = 1
-        while (diff > 1e-5):
-            # Parallele transport of the whole Gaussian:
-            #R = man.parallel_transport(np.eye(man.n_dimT), mu, (x_i, x_o) ).T
-            #lambda_r = R.dot(Lambda.dot(R.T))
-            #lambda_ii = lambda_r[np.ix_(ran_in,ran_in)]
-            #lambda_oi = lambda_r[np.ix_(ran_out,ran_in)]
-            #lambda_oo = lambda_r[np.ix_(ran_out,ran_out)] 
-            #if abs(R - np.eye(len(R)) ).sum() >1e-2:
-            #    print('R:\n',R)
-
-            # Parallel transport of only the output:
-            Ro = man_out.parallel_transport(np.eye(man_out.n_dimT), mu_o, x_o).T
             
-            # Split lambda:
-            lambda_ii = Lambda[np.ix_(ran_in,ran_in)]
-            lambda_oi = Ro.dot(Lambda[np.ix_(ran_out,ran_in)])
-            lambda_oo = Ro.dot(Lambda[np.ix_(ran_out,ran_out)].dot(Ro.T))
-            # Compute update
-            delta = (man_out.log(mu_o, x_o) 
-                     - man_in.log(x_i,mu_i).dot( (np.linalg.inv(lambda_oo).dot(lambda_oi)).T )  )
-            x_o   = man_out.exp(delta, x_o)
+        condres = []
+        for x_i in val:
+            x_o = mu_o # Initial guess
+            it=0; diff = 1
+            while (diff > 1e-6):
+                # Parallel transport of only the output:
+                Ro = man_out.parallel_transport(np.eye(man_out.n_dimT), mu_o, x_o).T
+                lambda_oi = Ro.dot(Lambda_oi)
+                lambda_oo = Ro.dot(Lambda_oo.dot(Ro.T))
 
-            diff = sum(delta*delta)
-            # Max iterations
-            it+=1
-            if it >50:
-                print('Conditioning did not converge in {0} its, Delta: {1}'.format(it, delta))
-                #print('no convergence, delta: {0}'.format(delta))
-                
-                break
-        #print(it)
+                # Compute update
+                delta = (man_out.log(mu_o, x_o) 
+                         - man_in.log(x_i,mu_i).dot( (np.linalg.inv(lambda_oo).dot(lambda_oi)).T )  )
+                x_o   = man_out.exp(delta, x_o)
 
-        sigma_xo = np.linalg.inv(lambda_oo)
-
-        return Gaussian(man_out, x_o, sigma_xo)
+                diff = sum(delta*delta)
+                # Max iterations
+                it+=1
+                if it >50:
+                    print('Conditioning did not converge in {0} its, Delta: {1}'.format(it, delta))
+                    break
+                    
+            sigma_xo = np.linalg.inv(lambda_oo)
+            condres.append( Gaussian(man_out, x_o, sigma_xo) )
+        
+        # Return result depending input value:
+        if len(condres)==1:
+            return condres[-1]
+        else:
+            return condres       
+            
 
     def __mul__(self,other):
         '''Compute the product of Gaussian''' 
