@@ -167,6 +167,17 @@ class Quaternion(object):
             return np.hstack( ([self.q0],self.q))
 
     @staticmethod
+    def from_R(R):
+        '''Return (list of) Quaternion from (list of) Rotation Matrix'''
+        if type(R) is list:
+            res = []
+            for Rtmp in R:
+                res.append(Quaternion.from_R(Rtmp))
+            return res
+        else:
+            return get_q_from_R(R)
+
+    @staticmethod
     def from_nparray(qarray):
         ''' Return list of Quaternions from an np array
         qarray: n_data x 4 numpy array in which each column is [q0, q1, q2, q3]
@@ -251,7 +262,7 @@ def get_q_from_R(R):
         add = (kx >= 0)
     elif (R[1,1] >= R[2,2]):
         kx1 = R[1,0] + R[0,1]              # Ny + Ox
-        ky1 = R[0,0] - R[1,1] - R[2,2] + 1 # Oy - Nx - Az + 1
+        ky1 = R[1,1] - R[0,0] - R[2,2] + 1 # Oy - Nx - Az + 1
         kz1 = R[2,1] + R[1,2]              # Oz + Ay
         add = (ky >= 0)
     else:
