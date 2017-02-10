@@ -43,6 +43,16 @@ from copy import deepcopy
 from copy import copy
 
 
+from enum import Enum
+
+class RegularizationType(Enum):
+    NONE      = None
+    SHRINKAGE = 1
+    DIAGONAL  = 2
+
+
+
+
 # Statistical function:
 class Gaussian(object):
     def __init__(self, manifold, mu=None, sigma=None):
@@ -109,16 +119,17 @@ class Gaussian(object):
         
         return Gaussian(self.manifold.get_submanifold(i_in),mu_m, sigma_m  )
 
-    def mle(self, x, h=None, reg_lambda=1e-3):
+    def mle(self, x, h=None, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE):
         '''Maximum Likelihood Estimate
         x         : input data
         h         : optional list of weights
-        reg_lambda: Shrinkage regularization factor (1=fully shrink, 0=don't shrink)
+        reg_lambda: Regularization factor
+        reg_type  : Covariance RegularizationType         
         '''
         x = self.manifold.swapto_tupleoflist(x)
 
         self.mu    = self.__empirical_mean(x, h)       
-        self.sigma = self.__empirical_covariance(x, h, reg_lambda)
+        self.sigma = self.__empirical_covariance(x, h, reg_lambda, reg_type)
         return self
 
 
@@ -177,11 +188,12 @@ class Gaussian(object):
         #    d += h[i]*self.manifold.log(base, val)
         return d
 
-    def __empirical_covariance(self, x, h=None, reg_lambda=1e-3):
+    def __empirical_covariance(self, x, h=None, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE):
         '''Compute emperical mean
         x         : input data
         h         : optional list of weights
-        reg_lambda: Shrinkage regularization factor (1=fully shrink, 0=don't shrink)
+        reg_lambda: Regularization factor
+        reg_type  : Covariance RegularizationType         
         '''
 
         # Create weights if not supplied:
@@ -213,8 +225,14 @@ class Gaussian(object):
         #    sigma += h[i]*tmp.dot(tmp.T)
             
         # Perform Shrinkage regularizaton:
-        return reg_lambda*np.diag(np.diag(sigma)) + (1-reg_lambda)*sigma
-        #return sigma + reg_lambda*np.eye(len(sigma))
+        if (reg_type == RegularizationType.SHRINKAGE):
+            return reg_lambda*np.diag(np.diag(sigma)) + (1-reg_lambda)*sigma
+        elif (reg_type == RegularizationType.DIAGONAL):
+            return sigma + reg_lambda*np.eye(len(sigma))
+        elif reg_type==None:
+            return sigma
+        else:
+            raise ValueError('Unknown regularization type for covariance regularization')
 
     def condition(self, val, i_in=0, i_out=1):
         '''Gaussian Conditioniong
@@ -453,7 +471,8 @@ class GMM:
         lik = np.vstack(lik)
         return lik
         
-    def fit(self, data, convthres=1e-5, maxsteps=100, minsteps=5, reg_lambda=1e-3):
+    def fit(self, data, convthres=1e-5, maxsteps=100, minsteps=5, reg_lambda=1e-3, 
+            reg_type= RegularizationType.SHRINKAGE):
         '''Initialize trajectory GMM using a time-based approach'''
             
         # Make sure that the data is a tuple of list:
@@ -471,7 +490,7 @@ class GMM:
             # Maximization:
             # - Update Gaussian:
             for i,gauss in enumerate(self.gaussians):
-                gauss.mle(data,gamma1[i,], reg_lambda)
+                gauss.mle(data,gamma1[i,], reg_lambda, reg_type)
             # - Update priors: 
             self.priors = gamma0.sum(axis=1)   # Sum probabilities of being in state i
             self.priors = self.priors/self.priors.sum() # Normalize
@@ -489,7 +508,7 @@ class GMM:
             
         return lik, avg_loglik
 
-    def init_time_based(self,t,data, reg_lambda=1e-3):
+    def init_time_based(self,t,data, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE):
 
         if t.ndim==2:
             t = t[:,0] # Drop last dimension
@@ -510,12 +529,12 @@ class GMM:
             tmpdata = self.manifold.np_to_manifold( npdata[sl] )
 
             # Perform mle:
-            g.mle(tmpdata, reg_lambda=reg_lambda)
+            g.mle(tmpdata, reg_lambda=reg_lambda, reg_type=reg_type)
             self.priors[i] = len(idtmp)
         self.priors = self.priors / self.priors.sum()
 
     
-    def kmeans(self,data, maxsteps=100):
+    def kmeans(self,data, maxsteps=100,reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE ):
 
         # Make sure that data is tuple of lists
         data = self.manifold.swapto_tupleoflist(data)
@@ -546,7 +565,7 @@ class GMM:
             for i, gauss in enumerate(self.gaussians):
                 sl = np.ix_( id_min==i , range(npdata.shape[1]))
                 dtmp = gauss.manifold.np_to_manifold(npdata[sl])
-                gauss.mle(dtmp)
+                gauss.mle(dtmp, reg_lambda=reg_lambda, reg_type=reg_type)
 
             #for i, gauss in enumerate(self.gaussians):
             #    tmp = [data[j] for j, x in enumerate(id_min) if x == i]
