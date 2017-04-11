@@ -46,11 +46,14 @@ Did you find RiePybDlib usefull for your research? Please acknowledge the author
 
 ```
 @article{Zeestraten2017,
-  	title = {An Approach for Imitation Learning on Riemannian Manifolds},
-	author = {Zeestraten, M.J.A. and Havoutis, I. and Silverio, J. and Calinon, S. and Caldwell, D. G.},
-	journal={{IEEE} Robotics and Automation Letters ({RA-L})},
-	year = {2017},
-	month={January},
+	title = "An Approach for Imitation Learning on {R}iemannian Manifolds",
+	author = "Zeestraten, M.J.A. and Havoutis, I. and Silv\'erio, J. and Calinon, S. and Caldwell, D. G.",
+	journal = "{IEEE} Robotics and Automation Letters ({RA-L})",
+	year = 2017,
+	volume = 2,
+	number = 3,
+	pages = "1240--1247",
+	month = "June",
 }
 ```
 
