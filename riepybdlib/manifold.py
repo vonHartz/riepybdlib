@@ -36,345 +36,9 @@ from copy import deepcopy
 from copy import copy
 
 import riepybdlib.angular_representations as ar
+from riepybdlib.mappings import *
 
 
-# ---------------- Manifold mapping functions
-# Euclean space Mappings:
-def eucl_action(x,g,h):
-    return x - g + h
-
-def eucl_exp_e(g_tan,reg=None):
-    return g_tan
-
-def eucl_log_e(g,reg=None):
-    return g
-
-def eucl_parallel_transport(Xg, g, h, t=1):
-    return Xg
-
-
-# -----------------     Quaternion Action, Log and Exponential        
-def arccos_star(rho):
-    if type(rho) is not np.ndarray:
-        # Check rho
-        if abs(rho)>1:
-            # Check error:
-            if (abs(rho) - 1 > 1e-6):
-                print('arcos_star: abs(rho) > 1+1e-6:'.format( abs(rho)-1) )
-                
-            # Fix error
-            rho = 1*np.sign(rho)
-        
-        # Single mode:
-        if (-1.0 <= rho and rho < 0.0):
-            return np.arccos(rho) - np.pi
-        else:
-            return np.arccos(rho)
-    else:
-        # Batch mode:
-        rho = np.array([rho])
-        
-        ones = np.ones(rho.shape)
-        rho = np.max(np.vstack( (rho,-1*ones ) ), axis=0)
-        rho = np.min(np.vstack( (rho, 1*ones ) ), axis=0)
-
-        acos_rho = np.zeros(rho.shape)
-        sl1 = np.ix_ ((-1.0 <= rho)*(rho < 0.0)==1)
-        sl2 = np.ix_ ((1.0 > rho)*(rho >= 0.0)==1)
-
-        acos_rho[sl1] = np.arccos(rho[sl1]) - np.pi
-        acos_rho[sl2] = np.arccos(rho[sl2])
-
-        return acos_rho
-
-quat_id = ar.Quaternion(1, np.zeros(3) )
-
-def quat_action(x,g,h):
-    return h*g.i()*x
-
-def quat_log_e(g, reg=1e-6):
-    d_added = False
-    if type(g) is list:
-        # Batch mode:
-        g_np = ar.Quaternion.to_nparray_st(g)
-    
-        # Create tangent values, and initalize to zero
-        g_tan = np.zeros( (g_np.shape[0], 3) )
-
-        # compute tangent values for quaternions which have q0 other than 1.0 - reg
-        # Slices:
-        g_np0_abs = abs(g_np[:,0]-1.0) > reg
-        sl_123 = np.ix_(g_np0_abs, range(1,4) )
-        sl_012 = np.ix_(g_np0_abs, range(3) )
-        sl_0   = np.ix_(g_np0_abs, [0] )
-
-        # Compute tangent values:
-        acos_q0 = arccos_star(g_np[sl_0][:,0])
-        qnorm   = g_np[sl_123].T/ np.linalg.norm(g_np[sl_123], axis=1)
-        g_tan[sl_012] = (qnorm*acos_q0).T
-
-        return g_tan
-    else:
-        # Single mode:
-        if abs(g.q0 - 1.0)>reg:
-            return arccos_star(g.q0)* (g.q/np.linalg.norm(g.q))
-        else:
-            return np.zeros(3)
-    
-    
-# The exponential map:
-def quat_exp_e(g_tan, reg=1e-6):
-    if g_tan.ndim == 2:
-        # Batch mode:
-        qnorm = np.linalg.norm(g_tan, axis=1)
-        qvec = np.vstack( (np.ones( g_tan.shape[0]), np.zeros( g_tan.shape ).T) ).T
-
-        # Select the non identity quaternions:
-        qnorm_abs = abs(qnorm) > reg
-        sl_0123 = np.ix_( qnorm_abs, range(4) )
-        sl_012 =  np.ix_( qnorm_abs, range(3) )
-        sl     =  np.ix_( qnorm_abs)
-        qnorm = qnorm[sl] 
-
-        # Compute the non identity values:
-        qvec[sl_0123]  = np.vstack( (np.cos(qnorm), g_tan[sl_012].T*(np.sin(qnorm)/qnorm) ) ).T
-
-        # Generate resulting quaternions:
-        res = []
-        for i in range(g_tan.shape[0]):
-            res.append(ar.Quaternion(qvec[i,0], qvec[i,1:]) )  # Return result:
-        #if d_added:
-        #    return res[0] # return on the single quaternion that was requested
-        #else:
-        return res # Return the list of quaternions
-    else:
-        # Single mode:
-        qnorm = np.linalg.norm(g_tan)
-        if ( qnorm != 0 ):
-            return ar.Quaternion( np.cos(qnorm), np.sin(qnorm)*( g_tan/qnorm )) 
-        else:
-            return ar.Quaternion(1, np.zeros(3) )
-
-def quat_log(x,g, reg=1e-6):
-    return quat_log_e(g.i()*x, reg)
-
-def quat_exp(x,g, reg=1e-6):
-    return g*quat_exp_e(x, reg)
-
-def quat_parallel_transport(Xg, g, h, t=1):
-    ''' Parallel transport of vectors in X from h to g*t, 0 <= t <= 1
-        Implementation is modified version of the one reported in
-        Optimization algorithms on Manifolds:
-    '''
-    
-    # Get intermediate position on geodesic between g and h 
-    if t<1:
-        ht = quat_exp( quat_log(h, g)*t, g)
-    else:
-        ht=h
-    
-    # Get quaternion matrices for rotation computation
-    Qeg = g.Q()  # Rotation between origin and g
-    Qeh = ht.Q() # between  rotation between ht and origin
-    
-    
-    # Get tangent  vector of h in g, expressed in R^4
-    # We first construct it at the origin (by augmenting it with 0)
-    # and then rotate it to point g
-    v = Qeg.dot(np.hstack([[0], quat_log(h,g)]))
-        
-    # Transform g into np array for computations
-    gnp = g.to_nparray()  # Transform to np array
-    m = np.linalg.norm(v) # Angle of rotation (or 'transport)
-    
-    # Compute Tangential rotation (this is done in n_dimM)
-    if m < 1e-6:
-        Rgh = np.eye(4)
-    else:
-        u = (v/m)[:,None]
-        gnp = gnp[:,None]
-
-        Rgh = (- gnp*np.sin( m*t )*u.T 
-             + u*np.cos( m*t )*u.T
-             + ( np.eye(4) - u.dot(u.T) )
-            )
-        
-    # ----- Finally compute rotation compensation to achieve parallel transport:
-    Ie = np.eye(4)[:,1:].T
-    
-    Ig   = Ie.dot(Qeg.T)                   # Base orientation at g
-    Ih   = Ig.dot(Rgh.T)                   # Base orientation at h by parallel transport
-    Ie_p = Ih.dot(Qeh)                     # Tangent space orientation at origin with parallel transport
-    
-    # Compute relative rotation:
-    R = Ie.dot(Ie_p.T)
-    
-    if np.sign(np.trace(R)) ==-1:
-        # Change sign, to ensure proper rotation
-        R = -R
-                   
-    # Transform points and return
-    return Xg.dot(R.T)    
-        
-# ----------------------  S^2,
-s2_id = np.array([0,0,1])
-def s2_action(x, g, h):
-    ''' Moves x relative to g, to y relative to h
-
-    '''
-    # Convert possible list into nparray
-    if type(x) is list:
-        x = np.vstack(x)
-
-    # Get rotation of origin e to g
-    ax, angle = ar.get_axisangle(g)
-    Reg = ar.R_from_axis_angle(ax, angle)
-
-    # Get rotation of origin e to h
-    ax, angle = ar.get_axisangle(h)
-    Reh = ar.R_from_axis_angle(ax, angle)
-
-    # Creat rotation that moves x from g to the origin e,
-    # and then from e to h:
-    A = Reh.dot(Reg.T)
-
-    return x.dot(A.T)
-
-def s2_exp_e(g_tan, reg=1e-6):
-    if g_tan.ndim ==2:
-        # Batch operation:
-    
-        # Standard we assume unit values:
-        val = np.vstack( (
-                          np.zeros( (2, g_tan.shape[0]) ), 
-                          np.ones( g_tan.shape[0] ) 
-                         ) 
-                       ).T
-        
-        # Compute distance for all values that are larger than the regularization:
-        norm = np.linalg.norm(g_tan,axis=1)
-        cond = norm> reg
-        sl_2 =  np.ix_( cond, [2] )
-        sl_01 = np.ix_( cond, range(0,2) )
-
-        norm = norm[np.ix_(cond)]         # Throw away the norms we don't use
-        gt_norm = (g_tan[sl_01].T/norm).T # Normalize the input vector of selected values
-
-        val[sl_2]  = np.cos(norm)[:,None]
-        val[sl_01] = (gt_norm.T*np.sin(norm)).T
-
-        return val 
-    else:
-        # Single mode:
-        norm = np.linalg.norm(g_tan)
-        if norm > reg:
-            gt_norm = g_tan/norm
-            return np.hstack( (np.sin(norm)*gt_norm, [np.cos(norm)]) )
-        else:
-            return np.array([0,0,1])
-    
-def s2_log_e(g, reg = 1e-10):
-    '''Map values g, that lie on the Manifold, into the tangent space at the origin'''
-    
-    # Check input
-    d_added = False
-    if g.ndim ==2:
-        # Batch operation,
-        # Assume all values lie at the origin:
-        val = np.zeros( (g.shape[0], 2) )
-
-        # Compute distance for all values that are larger than the regularization:
-        cond =  (1-g[:,2]) > reg
-        sl_2 =  np.ix_( cond, [2] )
-        sl_01 = np.ix_( cond, range(0,2) )
-
-        val[sl_01] = (g[sl_01].T*( np.arccos( g[sl_2])[:,0]/np.linalg.norm(g[sl_01], axis=1) ) ).T
-        return val 
-    else:
-        # single mode:
-        if abs(1-g[2]) > reg:
-            return np.arccos(g[2])*g[0:2]/np.linalg.norm(g[0:2])
-        else:
-            return np.array([0,0])
-
-def s2_exp(x, g, reg=1e-10):
-
-    if type(x) is list:
-        x = np.vstack(x)
-
-    # Get rotation of origin e to g
-    ax, angle = ar.get_axisangle(g)
-    Reg = ar.R_from_axis_angle(ax, angle)
-
-    return s2_exp_e(x,reg).dot(Reg.T)
-
-def s2_log(x, g, reg=1e-10):
-
-    if type(x) is list:
-        x = np.vstack(x)
-
-    # Get rotation of origin e to g
-    ax, angle = ar.get_axisangle(g)
-    Reg = ar.R_from_axis_angle(ax, angle)
-
-    return s2_log_e(x.dot(Reg), reg)
-
-def s2_parallel_transport(Xg, g, h, t=1):
-    ''' Parallel transport of vectors in X from h to g*t, 0 <= t <= 1
-        Implementation is modified version of the one reported in
-        Optimization algorithms on Manifolds:
-        Xg : array of tangent vectors to parallel tranport  n_data x n_dimT
-        g  : base of tangent vectors                        n_dimM
-        h  : final point of tangent vectors                 n_dimM
-        t  : position on curve between g and h              0 <= t <= 1
-    '''
-    
-    
-    # Compute final point based on t
-    if t<1:
-        ht = s2_exp( s2_log(h, g)*t, g) # current position of h*t in on manifold
-    else:
-        ht=h
-    
-    # ----- Compute rotations between different locations:
-    
-    # Rotation between origin and g
-    (ax, angle) = ar.get_axisangle(g)
-    Reg = ar.R_from_axis_angle(ax,angle)
-    
-    # Rotation between origin and ht (in the original atlas)
-    (ax, angle) = ar.get_axisangle(ht)
-    Reh  = ar.R_from_axis_angle(ax,angle)  # Rotation between final point and origin
-    
-    # ------ Compute orientation at ht using parallel transpot
-    v  = Reg.dot( np.hstack([s2_log(h,g),[0]]) ) # Direction vector in R3
-    m  = np.linalg.norm(v)  # Angle of rotation
-    
-    # Compute Tangential rotation (this is done in n_dimM)
-    if m < 1e-10:
-        Rgh = np.eye(3)
-    else:
-        u = (v/m)[:,None]
-        g = g[:,None]
-
-        Rgh = (- g*np.sin( m*t )*u.T 
-             + u*np.cos( m*t )*u.T
-             + ( np.eye(3) - u.dot(u.T) )
-            )
-        
-    # ----- Finally compute rotation compensation to achieve parallel transport:
-    Ie = np.eye(3)[:,0:2].T
-    Ig   = Ie.dot(Reg.T)                   # Base orientation at g
-    Ih   = Ig.dot(Rgh.T)                   # Base orientation at h by parallel transport
-    Ie_p = Ih.dot(Reh)                     # Tangent space orientation at origin with parallel transport
-    
-    # Compute relative rotation:
-    R = Ie.dot(Ie_p.T)
-    
-                   
-    # Transform tangent data and return:
-    return Xg.dot(R.T)    
-    
 
 #------------------------ Classes --------------------------------
 class Manifold(object):
@@ -627,8 +291,8 @@ class Manifold(object):
         Xh = np.zeros(Xg.shape)
         ind = 0
         for i, man in enumerate(self.__manlist):
-            if man.__faction is None:
-                raise RuntimeError('Action function not specified for manifold {0}'.format(man.name))
+            if man.__fparalleltrans is None:
+                raise RuntimeError('Parallel transport not specified for manifold {0}'.format(man.name))
             else:
                 sl = np.arange( man.n_dimT ) + ind
                 Xh[:,sl] = man.__fparalleltrans(Xg[:,sl], g[i], h[i], t) 
@@ -679,10 +343,10 @@ class Manifold(object):
         return npdata
 
     def swapto_tupleoflist(self,data):
-        ''' Swap data from tuples of list to list of tuples'''
-        if (type(data) is tuple) or (type(data) is np.ndarray):
-            # Do nothing, already ok
-            return data
+        ''' Swap data from list of tuples to tuple of lists'''
+        if (type(data) is tuple or 
+            type(data) is type(self.id_elem)) :
+            tupleoflist = data
         elif type(data) is list:
             # Data is list of individual tuples:
             #          1           ---          n_data
@@ -694,42 +358,48 @@ class Manifold(object):
             for i,elem in enumerate(data):
                 npdata.append( self.manifold_to_np(elem))
             npdata = np.vstack(npdata)
-            tupledata = self.np_to_manifold(npdata)
-
-            return tupledata
+            if npdata.ndim==2 and npdata.shape[0]==1:
+                npdata=npdata[0,:] # drop dimension
+            tupleoflist = self.np_to_manifold(npdata)
         else:
-            raise RuntimeError('Unknown type {0} encoutered for swap'.format(type(data))) 
+            raise TypeError('Unknown type {0} encoutered for swap'.format(type(data))) 
+            
+        return tupleoflist
 
     def swapto_listoftuple(self,data):
         ''' Swap data from list of tuples to tuple of lists'''
-        if type(data) is list or type(data) is np.ndarray:
-            # Data already ok:
-            return data
-        if type(data) is tuple:
+        if type(data) is list:
+            listoftuple = data
+        elif type(data) is np.ndarray and self.n_manifolds==1:
+            if data.shape == self.id_elem.shape:
+                # This is a single element, extend dimension
+                data = data[None,:]
+            elif data.ndim==1:
+                data = data[:,None]
+            # Transform entries in list:
+            listoftuple = list(data)
+        elif type(data) is tuple:
             # Data is tuple of lists
             # ( [nbdata x submanifold_1]  )
             # ( [ |                    ]  )
             # ( [nbdata x submanifold_N]  )
-            
-            npdata = []
-            for i, elem in enumerate(list(data)):
-                tmp = self.get_submanifold(i).manifold_to_np(elem)
-                npdata.append(tmp)
-            npdata = np.hstack(npdata)
-            
-            elemlist = []
-            if npdata.ndim==2:
-                for i in range(npdata.shape[0]):
-                    elemlist.append( self.np_to_manifold(npdata[i,:]) )
-            elif npdata.ndim==1:
-                # Only one element
-                elemlist.append( self.np_to_manifold(npdata) )
-            else:
-                raise RuntimeError('Cannot handle dimensionallity of Array')
 
-            return elemlist
+            dofnlist = [] # List of D-manifolds each containing N elements
+            for i, elem in enumerate(list(data)):
+                nlist = self.get_submanifold(i).swapto_listoftuple(elem)
+                dofnlist.append(nlist)
+            
+            listoftuple = []
+            for n in range( len(dofnlist[0])):
+                elem = tuple([dofnlist[d][n] for d in range(self.n_manifolds)])
+                listoftuple.append(elem)
+        elif type(data) is type(self.id_elem):
+            listoftuple = [data]
         else:
-            raise RuntimeError('Unknown type {0} encoutered for swap'.format(type(data))) 
+            raise TypeError('Unknown type {0} encoutered for swap'.format(type(data))) 
+            
+        return listoftuple
+
 
     def swap_btwn_tuplelist(self, data):
         ''' Swap between tuple of data points and list of tuples'''
@@ -823,3 +493,70 @@ def get_s2_manifold(name='S2', fnptoman=None, fmantonp=None):
                  f_parallel_transport=s2_parallel_transport,
                  exp=s2_exp, log=s2_log# Add optional non-base maps that to provide more efficient computation
                  )
+
+
+def SO2_parallelTransp(xtan, a, b, t):
+    return xtan
+def get_SO2(name = 'SO(2)'):
+     return Manifold(n_dimM=4,n_dimT=1, 
+                          exp_e=SO2_exp_e, log_e=SO2_log_e,
+                          log=SO2_log,exp=SO2_exp,
+                          id_elem=np.eye(2),
+                          name=name,
+                          f_parallel_transport = SO2_parallelTransp, 
+                          f_nptoman=SO2_nptoman, f_mantonp=SO2_mantonp,
+                       )   
+
+def get_SO3(name = 'SO(3)'):
+     return Manifold(n_dimM=9,n_dimT=3, 
+                          exp_e=SO3_exp_e, log_e=SO3_log_e,
+                          log=SO3_log,exp=SO3_exp,
+                          id_elem=np.eye(3),
+                          name=name,
+                          f_nptoman=SO3_nptoman, f_mantonp=SO3_mantonp,
+                       )   
+
+def get_SE3(name = 'SE(3)'):
+     return Manifold(n_dimM=12,n_dimT=6, 
+                          exp_e=SE3_exp_e, log_e=SE3_log_e,
+                          log=SE3_log,exp=SE3_exp,
+                          id_elem=np.eye(4),
+                          name=name,
+                          f_nptoman=SE3_nptoman, f_mantonp=SE3_mantonp,
+                       )   
+
+def get_SE2(name = 'SE(2)'):
+     return Manifold(n_dimM=6,n_dimT=3, 
+                          exp_e=SE2_exp_e, log_e=SE2_log_e,
+                          log=SE2_log,exp=SE2_exp,
+                          id_elem=np.eye(3),
+                          name=name,
+                          f_nptoman=SE2_nptoman, f_mantonp=SE2_mantonp,
+                       )   
+
+def get_SPDn(n):
+     return Manifold(n_dimM=(n+1)*n//2, n_dimT=(n+1)*n//2,
+                         exp_e=SPD_exp_e, exp=SPD_exp, 
+                         log_e=SPD_log_e, log=SPD_log,
+                         id_elem=np.eye(n), name='SPD({0}'.format(n),
+                         f_nptoman= lambda data: SPD_nptoman(data,n), f_mantonp=SPD_mantonp,
+                   )  
+
+def get_GLn(n):
+     return Manifold(n_dimM=n**2, n_dimT=n**2,
+                        exp_e= GL_exp_e, log_e = GL_log_e,
+                        exp  = GL_exp  , log   = GL_log,
+                        id_elem=np.eye(n), name='GL({0})'.format(n),
+                        f_nptoman= lambda data: GL3_nptoman(data,n), 
+                        f_mantonp= GL_mantonp
+                    )
+
+def get_Affn(n):
+     return Manifold(
+             n_dimM=n**2+n,n_dimT=n**2+n,
+             exp_e=aff_exp_e,log_e=aff_log_e,
+             log=aff_log,exp=aff_exp,
+             id_elem=np.eye(n+1), name='Aff({0})'.format(n),
+             f_nptoman= lambda data: aff_nptoman(data,n), 
+             f_mantonp= lambda data: aff_mantonp(data,n) 
+            )

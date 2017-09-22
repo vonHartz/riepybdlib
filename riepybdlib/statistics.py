@@ -80,13 +80,26 @@ class Gaussian(object):
         '''
 
         # Regularization term
-        d = len(self.mu) # Dimensions
-        reg = np.sqrt( ( (2*np.pi)**d )*np.linalg.det(self.sigma) ) + 1e-20
+        #d = len(self.mu) # Dimensions
+        d = self.manifold.n_dimT
+        reg = np.sqrt( ( (2*np.pi)**d )*np.linalg.det(self.sigma) ) + 1e-200
         
         # Mahanalobis Distance:
 
         # Batch:
         dist = self.manifold.log(data, self.mu)
+
+        # Correct size:
+        if dist.ndim==2:
+            # Correct dimensions
+            pass
+        elif dist.ndim==1 and dist.shape[0]==self.manifold.n_dimT:
+            # Single element
+            dist=dist[None,:]
+        elif dist.ndim==1 and self.manifold.n_dimT==1:
+            # Multiple elements
+            dist=dist[:,None]
+
         dist = ( dist * np.linalg.solve(self.sigma,dist.T).T ).sum(axis=(dist.ndim-1))
         probs =  np.exp( -0.5*dist )/reg 
 
@@ -278,17 +291,7 @@ class Gaussian(object):
 
 
         # Convert input values to correct values:
-        if type(val) is np.ndarray:
-            if val.ndim==1:
-                val = val[None,:]
-            # Convert to list of points:
-            val = [val[i,:] for i in range(val.shape[0])]
-        elif type(val) is tuple:
-            # Ensure that we have list representation for tuples:
-            val = man_in.swapto_listoftuple(val)
-        elif type(val) is not list:
-            val = [val]
-        
+        val = man_in.swapto_listoftuple(val)
             
         condres = []
         for x_i in val:
@@ -382,7 +385,7 @@ class Gaussian(object):
         self.sigma = R.dot( self.sigma.dot(R.T) )
         self.mu = h
     
-    def plot_2d(self, ax=None, base=None, ix=0, iy=1, **kwargs):
+    def plot_2d(self, ax, base=None, ix=0, iy=1,**kwargs):
         ''' Plot Gaussian'''
 
         if base is None:
@@ -396,7 +399,8 @@ class Gaussian(object):
             # Select elements
             sigma = self.sigma[ [ix, iy], :][:, [ix, iy] ]
 
-        return fctplt.plot_gaussian_2d(mu, sigma, ax=ax, **kwargs)
+        return fctplt.GaussianPatch2d(ax=ax,mu=mu, sigma=sigma, **kwargs)
+        #return fctplt.plot_gaussian_2d(mu, sigma, ax=ax, **kwargs)
         
     def plot_3d(self, ax=None, base=None, ix=0, iy=1, iz=2, **kwargs):
         ''' Plot Gaussian'''
@@ -407,7 +411,7 @@ class Gaussian(object):
         mu = self.manifold.log(self.mu, base)[ [ix,iy,iz] ]
         sigma = self.sigma[ [ix, iy, iz], :][:, [ix, iy, iz] ]
 
-        return fctplt.plot_gaussian_3d(mu, sigma, ax=ax, **kwargs)
+        return fctplt.GaussianPatch3d(ax=ax, mu=mu, sigma=sigma, **kwargs)
 
     def copy(self):
         '''Get copy of Gaussian'''
@@ -418,6 +422,11 @@ class Gaussian(object):
         '''Write Gaussian parameters to files: name_mu.txt, name_sigma.txt'''
         np.savetxt('{0}_mu.txt'.format(name),self.manifold.manifold_to_np(self.mu) )
         np.savetxt('{0}_sigma.txt'.format(name),self.sigma)
+
+    def sample(self):
+        A = np.linalg.cholesky(self.sigma)
+        samp = A.dot(np.random.randn(self.manifold.n_dimT))
+        return self.manifold.exp(samp,self.mu)
 
     @staticmethod
     def load(name,manifold):
@@ -470,6 +479,11 @@ class GMM:
               lik.append(gauss.prob(data)*self.priors[i])
         lik = np.vstack(lik)
         return lik
+
+    def predict(self, data):
+        '''Classify to which datapoint each kernel belongs'''
+        lik = self.expectation(data)
+        return np.argmax(lik, axis=0)
         
     def fit(self, data, convthres=1e-5, maxsteps=100, minsteps=5, reg_lambda=1e-3, 
             reg_type= RegularizationType.SHRINKAGE):
@@ -484,7 +498,7 @@ class GMM:
         for st in range(maxsteps):
             # Expectation:
             lik = self.expectation(data)
-            gamma0 = (lik/lik.sum(axis=0))           # Sum over states is one
+            gamma0 = (lik/ (lik.sum(axis=0) + 1e-200) )# Sum over states is one
             gamma1 = (gamma0.T/gamma0.sum(axis=1)).T # Sum over data is one
 
             # Maximization:
@@ -496,7 +510,7 @@ class GMM:
             self.priors = self.priors/self.priors.sum() # Normalize
 
             # Check for convergence:
-            avglik = -np.log(lik.sum(0)).mean()
+            avglik = -np.log(lik.sum(0)+1e-200).mean()
             if abs(avglik - prvlik) < convthres and st > minsteps:
                 print('EM converged in %i steps'%(st))
                 break
@@ -673,25 +687,18 @@ class GMM:
         '''
         m_out  = self.gaussians[0].manifold.get_submanifold(i_out)
         m_in   = self.gaussians[0].manifold.get_submanifold(i_in)
-
-        # Check input:
-        if type(data_in) is float:
-            data_in = [data_in]
-
-        # Ensure data is list of tuple so we can iterate through the tuples:
-        xnp_in = m_in.swapto_listoftuple(data_in)
-        n_data = len(xnp_in)
+        
+        # Check swap input data to list:
+        ldata_in = m_in.swapto_listoftuple(data_in)
+        n_data = len(ldata_in)
             
         # Compute weights:
         h = np.zeros( (n_data,self.n_components) )
         h= self.margin(i_in).expectation(data_in)
-        #for i,gauss in enumerate(self.gaussians):
-            # Compute activation weights:
-        #    h[:,i] = self.priors[i]*gauss.margin(i_in).prob(data_in)
         h = (h/h.sum(0)).T # Normalize w.r.t states
         
         gmr_list = []
-        for n in range(n_data):
+        for n, point in enumerate(ldata_in):
             # Compute conditioned elements:
             gc_list = []
             muc_list = []
@@ -700,7 +707,7 @@ class GMM:
                 # Do this to prevent convergence errors
                 if h[n,i]>1e-5:
                     # weight is larger than 1e-3
-                    gc_list.append(gauss.condition(xnp_in[n], i_in=i_in, i_out=i_out))
+                    gc_list.append(gauss.condition(point, i_in=i_in, i_out=i_out))
                 else:
                     # No signnificant weight, just store the margin 
                     gc_list.append(gauss.margin(i_out))
@@ -751,25 +758,25 @@ class GMM:
             
         return gmr_list
 
-    def plot_2d(self, base=None, ax=None, ix=0, iy=1, **kwargs):
+    def plot_2d(self, ax, base=None, ix=0, iy=1, **kwargs):
         ''' Plot Gaussian'''
 
         if base is None:
             base = self.manifold.id_elem
             
-        l_list =[]
+        l_list = fctplt.GaussianGraphicList()
         for _,gauss in enumerate(self.gaussians):
             l_list.append( gauss.plot_2d(base=base,ax=ax,ix=ix,iy=iy,**kwargs) )
 
         return l_list
         
-    def plot_3d(self, base=None, ax=None, ix=0, iy=1, iz=2, **kwargs):
+    def plot_3d(self, ax, base=None, ix=0, iy=1, iz=2, **kwargs):
         ''' Plot Gaussian'''
 
         if base is None:
             base = self.manifold.id_elem
             
-        l_list =[]
+        l_list =fctplt.GaussianGraphicList()
         for _,gauss in enumerate(self.gaussians):
             l_list.append( gauss.plot_3d(base=base,ax=ax,ix=ix,iy=iy, iz=iz, **kwargs) )
 

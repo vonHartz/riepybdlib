@@ -250,7 +250,7 @@ def quatToEulerXYZ(q):
 def get_q_from_R(R):
     ''' From Peter Corke's Robotics toolbox'''
 
-    qs = np.sqrt( np.trace(R) +1)/2.0
+    qs = min(np.sqrt( np.trace(R) +1)/2.0,1.0)
     kx = R[2,1] - R[1,2]   # Oz - Ay
     ky = R[0,2] - R[2,0]   # Ax - Nz
     kz = R[1,0] - R[0,1]   # Ny - Ox
