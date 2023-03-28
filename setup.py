@@ -41,5 +41,5 @@ setup(name='riepybdlib',
       license='MIT',
       packages=find_packages(),
       data_files = dlist,
-      install_requires = {'numpy','scipy','matplotlib'},
+      install_requires = ['numpy','scipy','matplotlib'],
       zip_safe=False)
