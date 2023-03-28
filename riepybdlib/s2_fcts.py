@@ -113,7 +113,7 @@ def plot_geodesic(ax, g,h, n_data = 20, t_st=0, t_end=1, linewidth=1,
         linestyle=linestyle, color=color, **kwargs)
 
 
-def plot_manifold(ax,base=[0,0,1],color=[0.8,0.8,0.8],alpha=0.8,r=0.99, linewidth=0, lim=1.1, n_elems=100,**kwargs):
+def plot_manifold(ax,base=[0,0,1],color=[0.8,0.8,0.8],alpha=0.4,r=0.99, linewidth=0, lim=1.1, n_elems=100,**kwargs):
 
     u = np.linspace(0, 2 * np.pi, n_elems)
     v = np.linspace(0, np.pi, n_elems)
