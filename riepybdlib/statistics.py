@@ -50,6 +50,19 @@ class RegularizationType(Enum):
     SHRINKAGE = 1
     DIAGONAL  = 2
 
+# Taken from https://adamj.eu/tech/2021/10/13/how-to-create-a-transparent-attribute-alias-in-python/
+class Alias:
+    def __init__(self, source_name):
+        self.source_name = source_name
+
+    def __get__(self, obj, objtype=None):
+        if obj is None:
+            # Class lookup, return descriptor
+            return self
+        return getattr(obj, self.source_name)
+
+    def __set__(self, obj, value):
+        setattr(obj, self.source_name, value)
 
 
 
@@ -522,6 +535,44 @@ class GMM:
             
         return lik, avg_loglik
 
+    def fit_from_np(self, npdata, convthres=1e-5, maxsteps=100, minsteps=5, reg_lambda=1e-3, 
+                    reg_type= RegularizationType.SHRINKAGE):
+        '''Initialize trajectory GMM using a time-based approach'''
+
+        data = self.manifold.np_to_manifold(npdata)
+
+        # Make sure that the data is a tuple of list:
+        n_data = len(data)
+        
+        prvlik = 0
+        avg_loglik = []
+        for st in range(maxsteps):
+            # Expectation:
+            lik = self.expectation(data)
+            gamma0 = (lik/ (lik.sum(axis=0) + 1e-200) )# Sum over states is one
+            gamma1 = (gamma0.T/gamma0.sum(axis=1)).T # Sum over data is one
+
+            # Maximization:
+            # - Update Gaussian:
+            for i,gauss in enumerate(self.gaussians):
+                gauss.mle(data,gamma1[i,], reg_lambda, reg_type)
+            # - Update priors: 
+            self.priors = gamma0.sum(axis=1)   # Sum probabilities of being in state i
+            self.priors = self.priors/self.priors.sum() # Normalize
+
+            # Check for convergence:
+            avglik = -np.log(lik.sum(0)+1e-200).mean()
+            if abs(avglik - prvlik) < convthres and st > minsteps:
+                print('EM converged in %i steps'%(st))
+                break
+            else:
+                avg_loglik.append(avglik)
+                prvlik = avglik
+        if (st+1) >= maxsteps:
+             print('EM did not converge in {0} steps'.format(maxsteps))
+            
+        return lik, avg_loglik
+
     def init_time_based(self,t,data, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE):
 
         if t.ndim==2:
@@ -845,8 +896,6 @@ class GMM:
             mygmm.gaussians[i]=tmpg
         mygmm.priors = np.loadtxt('{0}_priors.txt'.format(name))
         return mygmm
-        
-            
 
-
-
+    # Aliases for compatibility with pbdlib
+    nb_states = Alias("n_components")
