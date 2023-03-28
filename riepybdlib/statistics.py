@@ -600,6 +600,56 @@ class GMM:
 #            newmu = gauss.manifold.action(gauss.mu, self.base, h)
 #            newgmm.gaussian[i] = gauss.action(newmu)
 
+
+    def kmeans_from_np(self,npdata, maxsteps=100,reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE ):
+
+        data = self.manifold.np_to_manifold(npdata)  # swapto_tupleoflist
+        n_data = npdata.shape[0]
+
+        id_tmp = np.random.permutation(n_data)
+        for i, gauss in enumerate(self.gaussians):
+            gauss.mu = self.manifold.np_to_manifold( npdata[id_tmp[i],:])
+        
+        dist = np.zeros( (n_data, self.n_components) )
+        dist2 = np.zeros( (n_data, self.n_components) )
+        id_old = np.ones(n_data) + self.n_components
+        for it in range(maxsteps):
+            # E-step 
+            # batch:
+            for i, gauss in enumerate(self.gaussians):
+                dist[:,i] = (gauss.manifold.log(data, gauss.mu)**2).sum(axis=1)
+            # single::
+            #    for n in range(n_data):
+            #        dist[n,i] = sum(gauss.manifold.log(gauss.mu, data[n])**2)
+            id_min = np.argmin(dist, axis=1)        
+
+            # M-step
+            # Batch:
+            for i, gauss in enumerate(self.gaussians):
+                sl = np.ix_( id_min==i , range(npdata.shape[1]))
+                dtmp = gauss.manifold.np_to_manifold(npdata[sl])
+                gauss.mle(dtmp, reg_lambda=reg_lambda, reg_type=reg_type)
+
+            #for i, gauss in enumerate(self.gaussians):
+            #    tmp = [data[j] for j, x in enumerate(id_min) if x == i]
+            #    gauss.mle(tmp)
+            #    self.priors[i] = len(tmp)
+            self.priors = self.priors/sum(self.priors)
+
+            # Stopping criteria:
+            if (sum(id_min != id_old) == 0):
+                # No datapoint changes:
+                print('K-means converged in {0} iterations'.format(it))
+                break;
+            else:
+                id_old = id_min
+#    def action(self,h):
+#        newgmm = GMM(self.n_components, self.manifold, base=h)
+#        for i,gauss in enumerate(self.gaussians):
+#            newmu = gauss.manifold.action(gauss.mu, self.base, h)
+#            newgmm.gaussian[i] = gauss.action(newmu)
+
+
     def tangent_action(self,A):
         ''' Perform A to the tangent space of the GMM 
         At   : Tangent space transformation matrix (e.g. Rotation matrix)
