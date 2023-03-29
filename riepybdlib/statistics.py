@@ -426,11 +426,22 @@ class Gaussian(object):
 
         return fctplt.GaussianPatch3d(ax=ax, mu=mu, sigma=sigma, **kwargs)
 
-    def get_mu_sigma(self, base=None, idx=None):
+    def get_mu_sigma(self, base=None, idx=None, mu_on_tangent=True,
+                     as_np=False):
         if base is None:
             base = self.manifold.id_elem
 
-        mu = self.manifold.log(self.mu, base)
+        if mu_on_tangent:
+            mu = self.manifold.log(self.mu, base)
+        elif as_np:
+            mu = list(self.mu)
+            for i, m in enumerate(mu):
+                if type(m) is not np.ndarray:
+                    mu[i] = m.to_nparray()
+            mu = np.concatenate(mu)
+        else:
+            mu = self.mu
+
         sigma = self.sigma
         if idx is not None:
             mu = mu[ [*idx] ]
@@ -707,15 +718,14 @@ class GMM:
             else:
                 id_old = id_min
 
-    def log_from_np(self, npdata):
+    def log_from_np(self, npdata, base=None):
         data = self.manifold.np_to_manifold(npdata)
 
-        print(self.base)
-        print(self.get_mu_sigma()[0].shape)
-
         # TODO: need to use (respective) mu?
+        if base is None:
+            base = self.base
 
-        proj = self.manifold.log(data, self.base)
+        proj = self.manifold.log(data, base)
 
         return proj
 
@@ -901,11 +911,23 @@ class GMM:
 
         return l_list
 
-    def get_mu_sigma(self, base=None, idx=None):
-        comp = [g.get_mu_sigma(base=base, idx=idx) for g in self.gaussians]
+    def get_mu_sigma(self, base=None, idx=None, stack=False, mu_on_tangent=True,
+                     as_np=False):
+        comp = [g.get_mu_sigma(base=base, idx=idx, mu_on_tangent=mu_on_tangent,
+                               as_np=as_np)
+                for g in self.gaussians]
 
-        mu = np.stack([c[0] for c in comp])
-        sigma = np.stack([c[1] for c in comp])
+        mu = [c[0] for c in comp]
+
+        sigma = [c[1] for c in comp]
+
+        if stack:
+            assert as_np
+            mu = np.stack(mu)
+            sigma = np.stack(sigma)
+        else:
+            mu = tuple(mu)
+            sigma = tuple(sigma)
 
         return mu, sigma
 

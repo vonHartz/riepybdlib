@@ -230,7 +230,10 @@ class Quaternion(object):
         return R
     
     def __str__(self):
-        return "({0:.2f}, {1})".format(self.q0,self.q) 
+        return "Q({0:.2f}, {1})".format(self.q0,self.q)
+
+    def __repr__(self):
+        return self.__str__()
 
 ############## Rotational Conversions:
 
