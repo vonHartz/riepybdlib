@@ -426,6 +426,15 @@ class Gaussian(object):
 
         return fctplt.GaussianPatch3d(ax=ax, mu=mu, sigma=sigma, **kwargs)
 
+    def get_mu_sigma(self, base=None, ix=0, iy=1, iz=2):
+        if base is None:
+            base = self.manifold.id_elem
+
+        mu = self.manifold.log(self.mu, base)[ [ix,iy,iz] ]
+        sigma = self.sigma[ [ix, iy, iz], :][:, [ix, iy, iz] ]
+
+        return mu, sigma
+
     def copy(self):
         '''Get copy of Gaussian'''
         g_copy = Gaussian(self.manifold, deepcopy(self.mu),deepcopy(self.sigma))
@@ -654,7 +663,7 @@ class GMM:
 
     def kmeans_from_np(self,npdata, maxsteps=100,reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE ):
 
-        data = self.manifold.np_to_manifold(npdata)  # swapto_tupleoflist
+        data = self.manifold.np_to_manifold(npdata)
         n_data = npdata.shape[0]
 
         id_tmp = np.random.permutation(n_data)
@@ -694,12 +703,13 @@ class GMM:
                 break;
             else:
                 id_old = id_min
-#    def action(self,h):
-#        newgmm = GMM(self.n_components, self.manifold, base=h)
-#        for i,gauss in enumerate(self.gaussians):
-#            newmu = gauss.manifold.action(gauss.mu, self.base, h)
-#            newgmm.gaussian[i] = gauss.action(newmu)
 
+    def log_from_np(self, npdata):
+        data = self.manifold.np_to_manifold(npdata)
+
+        proj = self.manifold.log(data, self.base)
+
+        return proj
 
     def tangent_action(self,A):
         ''' Perform A to the tangent space of the GMM 
@@ -882,6 +892,15 @@ class GMM:
             l_list.append( gauss.plot_3d(base=base,ax=ax,ix=ix,iy=iy, iz=iz, **kwargs) )
 
         return l_list
+
+    def get_mu_sigma(self, base=None, ix=0, iy=1, iz=2):
+        comp = [g.get_mu_sigma(base=base, ix=ix, iy=iy, iz=iz) for g
+                in self.gaussians]
+
+        mu = np.stack([c[0] for c in comp])
+        sigma = np.stack([c[1] for c in comp])
+
+        return mu, sigma
 
     def save(self,name):
         for i,g in enumerate(self.gaussians):
