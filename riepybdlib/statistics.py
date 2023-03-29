@@ -426,12 +426,15 @@ class Gaussian(object):
 
         return fctplt.GaussianPatch3d(ax=ax, mu=mu, sigma=sigma, **kwargs)
 
-    def get_mu_sigma(self, base=None, ix=0, iy=1, iz=2):
+    def get_mu_sigma(self, base=None, idx=None):
         if base is None:
             base = self.manifold.id_elem
 
-        mu = self.manifold.log(self.mu, base)[ [ix,iy,iz] ]
-        sigma = self.sigma[ [ix, iy, iz], :][:, [ix, iy, iz] ]
+        mu = self.manifold.log(self.mu, base)
+        sigma = self.sigma
+        if idx is not None:
+            mu = mu[ [*idx] ]
+            sigma = sigma[ [*idx], :][:, [*idx] ]
 
         return mu, sigma
 
@@ -707,6 +710,11 @@ class GMM:
     def log_from_np(self, npdata):
         data = self.manifold.np_to_manifold(npdata)
 
+        print(self.base)
+        print(self.get_mu_sigma()[0].shape)
+
+        # TODO: need to use (respective) mu?
+
         proj = self.manifold.log(data, self.base)
 
         return proj
@@ -893,9 +901,8 @@ class GMM:
 
         return l_list
 
-    def get_mu_sigma(self, base=None, ix=0, iy=1, iz=2):
-        comp = [g.get_mu_sigma(base=base, ix=ix, iy=iy, iz=iz) for g
-                in self.gaussians]
+    def get_mu_sigma(self, base=None, idx=None):
+        comp = [g.get_mu_sigma(base=base, idx=idx) for g in self.gaussians]
 
         mu = np.stack([c[0] for c in comp])
         sigma = np.stack([c[1] for c in comp])

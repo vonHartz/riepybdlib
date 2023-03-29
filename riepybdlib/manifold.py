@@ -346,6 +346,7 @@ class Manifold(object):
         ''' Swap data from list of tuples to tuple of lists'''
         if (type(data) is tuple or 
             type(data) is type(self.id_elem)) :
+            print("Data is already in tuple of lists format")
             tupleoflist = data
         elif type(data) is list:
             # Data is list of individual tuples:
