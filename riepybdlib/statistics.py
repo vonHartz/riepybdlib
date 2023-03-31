@@ -778,6 +778,13 @@ class GMM:
             # mean location. 
             self.gaussians[i].mu = self.base 
             self.gaussians[i].parallel_transport(mus_new[i])
+
+    def homogeneous_trans(self, A, b):
+        model = copy(self)
+        model.tangent_action(A)     # Rotate Gaussian in the tangent space of the orign
+        model.parallel_transport(b)   # Move origin
+
+        return model
     
     def margin(self, i_in):
         # Construct new GMM:
@@ -947,3 +954,8 @@ class GMM:
 
     # Aliases for compatibility with pbdlib
     nb_states = Alias("n_components")
+    # def marginal_model(self, slc):
+    #     idx = list(range(slc.stop)[slc])
+    #     print(idx)
+    #     print(self.gaussians)
+    #     return self.margin(idx)
