@@ -325,7 +325,8 @@ class Gaussian(object):
                 # Max iterations
                 it+=1
                 if it >50:
-                    print('Conditioning did not converge in {0} its, Delta: {1}'.format(it, delta))
+                    logger.warning(
+                        'Conditioning did not converge in {0} its, Delta: {1}'.format(it, delta))
                     break
                     
             sigma_xo = np.linalg.inv(lambda_oo)
@@ -379,9 +380,8 @@ class Gaussian(object):
             diff = sum(delta*delta)
             it+=1
             if it >max_it:
-                msg = 'Product did not converge in {0} iterations.'.format(max_it)
-                print_func = logger.warning  # print
-                print_func(msg)
+                logger.warning(
+                    'Product did not converge in {0} iterations.'.format(max_it))
                 break
 
         return Gaussian(self.manifold, mu,sigma)
@@ -550,13 +550,13 @@ class GMM:
             # Check for convergence:
             avglik = -np.log(lik.sum(0)+1e-200).mean()
             if abs(avglik - prvlik) < convthres and st > minsteps:
-                print('EM converged in %i steps'%(st))
+                logger.info('EM converged in %i steps'%(st))
                 break
             else:
                 avg_loglik.append(avglik)
                 prvlik = avglik
         if (st+1) >= maxsteps:
-             print('EM did not converge in {0} steps'.format(maxsteps))
+             logger.info('EM did not converge in {0} steps'.format(maxsteps))
             
         return lik, avg_loglik
 
@@ -588,13 +588,13 @@ class GMM:
             # Check for convergence:
             avglik = -np.log(lik.sum(0)+1e-200).mean()
             if abs(avglik - prvlik) < convthres and st > minsteps:
-                print('EM converged in %i steps'%(st))
+                logger.info('EM converged in %i steps'%(st))
                 break
             else:
                 avg_loglik.append(avglik)
                 prvlik = avglik
         if (st+1) >= maxsteps:
-             print('EM did not converge in {0} steps'.format(maxsteps))
+             logger.warning('EM did not converge in {0} steps'.format(maxsteps))
             
         return lik, avg_loglik
 
@@ -666,7 +666,7 @@ class GMM:
             # Stopping criteria:
             if (sum(id_min != id_old) == 0):
                 # No datapoint changes:
-                print('K-means converged in {0} iterations'.format(it))
+                logger.info('K-means converged in {0} iterations'.format(it))
                 break;
             else:
                 id_old = id_min
@@ -715,7 +715,7 @@ class GMM:
             # Stopping criteria:
             if (sum(id_min != id_old) == 0):
                 # No datapoint changes:
-                print('K-means converged in {0} iterations'.format(it))
+                logger.info('K-means converged in {0} iterations'.format(it))
                 break;
             else:
                 id_old = id_min
@@ -878,7 +878,7 @@ class GMM:
                 diff = (delta*delta).sum()
                 
                 if it>50:
-                    print('GMR did not converge in {0} iterations.'.format(n))
+                    logger.warning('GMR did not converge in {0} iterations.'.format(n))
                     break;
                 it+=1
                     
