@@ -304,15 +304,21 @@ class Manifold(object):
         else:
             return  Xh
     
-    def np_to_manifold(self, data):
+    def np_to_manifold(self, data, dim=None):
         '''Transfrom nparray in a tuple of manifold elements
         data: n_data x n_dimM  array
+        dim: list[int] Allows to specify the sub-manifolds to be used. Analog
+             to i_in in gmr. 
         output: tuple( M1, M2, ..., Mn), in which M1 is a list of manifold elements
        
         '''
         tmp = []
         ind = 0
-        for j, man in enumerate(self.__manlist):
+
+        dim = range(self.n_manifolds) if dim is None else dim
+
+        for j in dim:
+            man = self.__manlist[j]
             if data.ndim == 1:
                 tmp.append(man.__fnptoman( data[np.arange(man.n_dimM) + ind] ) )
             else:

@@ -33,7 +33,7 @@ You should have received a copy of the GNU General Public License
 along with RiePybDlib. If not, see <http://www.gnu.org/licenses/>.
 '''
 
-
+from loguru import logger
 
 import numpy as np
 import riepybdlib.manifold as rm
@@ -379,7 +379,9 @@ class Gaussian(object):
             diff = sum(delta*delta)
             it+=1
             if it >max_it:
-                print('Product did not converge in {0} iterations.'.format(max_it) )
+                msg = 'Product did not converge in {0} iterations.'.format(max_it)
+                print_func = logger.warning  # print
+                print_func(msg)
                 break
 
         return Gaussian(self.manifold, mu,sigma)
@@ -781,8 +783,11 @@ class GMM:
 
     def homogeneous_trans(self, A, b):
         model = copy(self)
-        model.tangent_action(A)     # Rotate Gaussian in the tangent space of the orign
-        model.parallel_transport(b)   # Move origin
+        model.tangent_action(A)  # Apply A in tangent space of origin.
+        # TODO: is using b as argument correct?
+        # mu: should be mapped from e to e+b?
+        # Sigma: ???
+        model.parallel_transport(b)   # Move origin to new mean.
 
         return model
     
@@ -814,6 +819,10 @@ class GMM:
             prodgmm.gaussians[i] = self.gaussians[i]*other.gaussians[i]
             
         return prodgmm
+
+    def gmr_from_np(self, npdata_in, i_in=0, i_out=1):
+        data = self.manifold.np_to_manifold(npdata_in, dim=i_in)
+        return self.gmr(data, i_in, i_out)
 
     def gmr (self ,data_in, i_in=0, i_out=1):
         '''Perform Gaussian Mixture Regression
