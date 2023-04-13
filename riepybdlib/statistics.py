@@ -36,6 +36,7 @@ along with RiePybDlib. If not, see <http://www.gnu.org/licenses/>.
 from loguru import logger
 
 import numpy as np
+import pbdlib as pbd
 import riepybdlib.manifold as rm
 import riepybdlib.plot as fctplt
 
@@ -86,6 +87,11 @@ class Gaussian(object):
             raise RuntimeError('Dimensions of sigma do not match Manifold')
         else:
             self.sigma = sigma
+
+    def prob_from_np(self, npdata):
+        data = self.manifold.np_to_manifold(npdata)
+
+        return self.prob(data)
         
     def prob(self,data):
         '''Evaluate probability of sample
@@ -824,7 +830,7 @@ class GMM:
         data = self.manifold.np_to_manifold(npdata_in, dim=i_in)
         return self.gmr(data, i_in, i_out)
 
-    def gmr (self ,data_in, i_in=0, i_out=1):
+    def gmr(self ,data_in, i_in=0, i_out=1):
         '''Perform Gaussian Mixture Regression
         x    : liar of elements on the input manifold
         i_in : Index of input manifold
@@ -899,6 +905,7 @@ class GMM:
             #    sigma_gmr += h[n,i]*(  gc_list[i].sigma 
             #                         + dtmp.dot(dtmp.T) 
             #                        )
+
             gmr_list.append( Gaussian(m_out, mu_gmr, sigma_gmr))
             
         return gmr_list
