@@ -34,6 +34,7 @@ along with RiePybDlib. If not, see <http://www.gnu.org/licenses/>.
 '''
 
 from loguru import logger
+from tqdm.auto import tqdm
 
 import numpy as np
 import pbdlib as pbd
@@ -41,8 +42,6 @@ import riepybdlib.manifold as rm
 import riepybdlib.plot as fctplt
 
 from copy import deepcopy
-from copy import copy
-
 
 from enum import Enum
 
@@ -65,6 +64,14 @@ class Alias:
     def __set__(self, obj, value):
         setattr(obj, self.source_name, value)
 
+# For hashing
+# https://gist.github.com/Susensio/61f4fee01150caaac1e10fc5f005eb75
+def array_to_tuple(np_array):
+    """Iterates recursivelly."""
+    try:
+        return tuple(array_to_tuple(x) for x in np_array)
+    except TypeError:
+        return np_array
 
 
 # Statistical function:
@@ -487,10 +494,17 @@ class Gaussian(object):
             print('Specified manifold is not compatible with loaded mean: {0}'.format(err))
         return Gaussian(manifold, mu,sigma)
 
+    def __key(self):
+        return (
+            self.manifold, array_to_tuple(self.mu), array_to_tuple(self.sigma))
 
+    def __hash__(self):
+        return hash(self.__key())
 
-
-    
+    def __eq__(self, other):
+        if isinstance(other, Gaussian):
+            return self.__key() == other.__key()
+        return NotImplemented
 
 
 class GMM:
@@ -577,7 +591,7 @@ class GMM:
         
         prvlik = 0
         avg_loglik = []
-        for st in range(maxsteps):
+        for st in tqdm(range(maxsteps), desc='EM'):
             # Expectation:
             lik = self.expectation(data)
             gamma0 = (lik/ (lik.sum(axis=0) + 1e-200) )# Sum over states is one
@@ -695,7 +709,7 @@ class GMM:
         dist = np.zeros( (n_data, self.n_components) )
         dist2 = np.zeros( (n_data, self.n_components) )
         id_old = np.ones(n_data) + self.n_components
-        for it in range(maxsteps):
+        for it in tqdm(range(maxsteps), desc='K-means'):
             # E-step 
             # batch:
             for i, gauss in enumerate(self.gaussians):
@@ -788,7 +802,7 @@ class GMM:
             self.gaussians[i].parallel_transport(mus_new[i])
 
     def homogeneous_trans(self, A, b):
-        model = copy(self)
+        model = self.copy()
         model.tangent_action(A)  # Apply A in tangent space of origin.
         # TODO: is using b as argument correct?
         # mu: should be mapped from e to e+b?
@@ -967,6 +981,18 @@ class GMM:
             mygmm.gaussians[i]=tmpg
         mygmm.priors = np.loadtxt('{0}_priors.txt'.format(name))
         return mygmm
+
+    def __key(self):
+        return (
+            self.manifold, array_to_tuple(self.priors), tuple(self.gaussians))
+
+    def __hash__(self):
+        return hash(self.__key())
+
+    def __eq__(self, other):
+        if isinstance(other, GMM):
+            return self.__key() == other.__key()
+        return NotImplemented
 
     # Aliases for compatibility with pbdlib
     nb_states = Alias("n_components")
