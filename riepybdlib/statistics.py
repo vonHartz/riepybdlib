@@ -105,6 +105,10 @@ class Gaussian(object):
         data can either be a tuple or a list of tuples
         '''
 
+        # print(data)
+        # print(self.mu)
+        # print(self.sigma)
+
         # Regularization term
         #d = len(self.mu) # Dimensions
         d = self.manifold.n_dimT
@@ -967,6 +971,21 @@ class GMM:
             sigma = tuple(sigma)
 
         return mu, sigma
+
+    @property
+    def mu(self):  # for compatibility with pbdlib
+        mu, _ = self.get_mu_sigma(stack=True, as_np=True)
+        return mu
+
+    @property
+    def sigma(self):
+        _, sigma = self.get_mu_sigma(stack=True, as_np=True)
+        return sigma
+
+    def np_to_manifold_to_np(self, npdata_in, i_in, base=None):
+        data = self.manifold.np_to_manifold(npdata_in, dim=i_in)
+        # base = self.mu??
+        return self.manifold.log(data, base, dim=i_in)
 
     def save(self,name):
         for i,g in enumerate(self.gaussians):

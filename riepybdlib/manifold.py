@@ -226,7 +226,7 @@ class Manifold(object):
         else:
             return  tuple(tmp)
             
-    def log(self,g, base=None, reg=1e-10):
+    def log(self,g, base=None, reg=1e-10, dim=None):
         '''Manifold Logarithmic map
 
         Arguments
@@ -246,8 +246,15 @@ class Manifold(object):
             base = tuple([base])
         
         g_tan = []
-        for i, man in enumerate(self.__manlist):
-            g_tan.append( man.__flog(g[i], base[i], reg=reg) )
+
+        if dim is None:
+            dim = range(self.n_manifolds) 
+        else:
+            base = tuple(base[i] for i in dim)
+
+        for d, m in enumerate(dim):
+            man = self.__manlist[m]
+            g_tan.append( man.__flog(g[d], base[d], reg=reg) )
 
         return  np.hstack( g_tan )
 
@@ -332,15 +339,20 @@ class Manifold(object):
             # Combined manifold, transform the list in a tuple
             return tuple(tmp) 
 
-    def manifold_to_np(self,data):
+    def manifold_to_np(self,data, dim=None):
         ''' Transform manifold data into a numpy array'''
         # Ensure that we can handle both single samples and arrays of samples:
         np_list = []
+
+        dim = range(self.n_manifolds) if dim is None else dim
+
         if len(self.__manlist) == 1:
             npdata = self.__fmantonp(data)
+
         else:
-            for j, man in enumerate(self.__manlist):
-                tmp = man.__fmantonp(data[j])
+            for m, d in enumerate(dim):
+                man = self.__manlist[m]
+                tmp = man.__fmantonp(data[d])
                 #if (man.n_dimM == 1) and (tmp.ndim == 1):
                 #    tmp = tmp[:,None]
                 np_list.append(tmp)
