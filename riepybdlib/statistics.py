@@ -982,7 +982,7 @@ class GMM:
         _, sigma = self.get_mu_sigma(stack=True, as_np=True)
         return sigma
 
-    def np_to_manifold_to_np(self, npdata_in, i_in, base=None):
+    def np_to_manifold_to_np(self, npdata_in, i_in=None, base=None):
         data = self.manifold.np_to_manifold(npdata_in, dim=i_in)
         # base = self.mu??
         return self.manifold.log(data, base, dim=i_in)
@@ -1001,9 +1001,12 @@ class GMM:
         mygmm.priors = np.loadtxt('{0}_priors.txt'.format(name))
         return mygmm
 
+    def key(self):
+        return self.__key()
+
     def __key(self):
-        return (
-            self.manifold, array_to_tuple(self.priors), tuple(self.gaussians))
+        return (self.manifold.name, hash(array_to_tuple(self.priors)),
+                hash(tuple(self.gaussians)))
 
     def __hash__(self):
         return hash(self.__key())
