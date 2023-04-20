@@ -356,6 +356,7 @@ class Gaussian(object):
             return condres       
             
 
+    # @logger.contextualize(filter=False)
     def __mul__(self,other):
         '''Compute the product of Gaussian''' 
         max_it      = 50
@@ -546,7 +547,8 @@ class GMM:
         '''Classify to which datapoint each kernel belongs'''
         lik = self.expectation(data)
         return np.argmax(lik, axis=0)
-        
+
+    # @logger.contextualize(filter=False)
     def fit(self, data, convthres=1e-5, maxsteps=100, minsteps=5, reg_lambda=1e-3, 
             reg_type= RegularizationType.SHRINKAGE):
         '''Initialize trajectory GMM using a time-based approach'''
@@ -584,6 +586,7 @@ class GMM:
             
         return lik, avg_loglik
 
+    # @logger.contextualize(filter=False)
     def fit_from_np(self, npdata, convthres=1e-5, maxsteps=100, minsteps=5, reg_lambda=1e-3, 
                     reg_type= RegularizationType.SHRINKAGE):
         '''Initialize trajectory GMM using a time-based approach'''
@@ -647,7 +650,10 @@ class GMM:
             self.priors[i] = len(idtmp)
         self.priors = self.priors / self.priors.sum()
 
-    
+    def init_time_based_from_np(self,t,npdata, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE):
+        raise NotImplementedError("TODO")
+
+    # @logger.contextualize(filter=False)
     def kmeans(self,data, maxsteps=100,reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE ):
 
         # Make sure that data is tuple of lists
@@ -700,7 +706,7 @@ class GMM:
 #            newmu = gauss.manifold.action(gauss.mu, self.base, h)
 #            newgmm.gaussian[i] = gauss.action(newmu)
 
-
+    # @logger.contextualize(filter=False)
     def kmeans_from_np(self,npdata, maxsteps=100,reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE ):
 
         data = self.manifold.np_to_manifold(npdata)
@@ -848,6 +854,7 @@ class GMM:
         data = self.manifold.np_to_manifold(npdata_in, dim=i_in)
         return self.gmr(data, i_in, i_out)
 
+    # @logger.contextualize(filter=False)
     def gmr(self ,data_in, i_in=0, i_out=1):
         '''Perform Gaussian Mixture Regression
         x    : liar of elements on the input manifold
