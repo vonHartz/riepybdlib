@@ -650,8 +650,27 @@ class GMM:
             self.priors[i] = len(idtmp)
         self.priors = self.priors / self.priors.sum()
 
-    def init_time_based_from_np(self,t,npdata, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE):
-        raise NotImplementedError("TODO")
+    def init_time_based_from_np(self, npdata, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE):
+        # Assuming that data is first manifold dimension
+        t = npdata[:,0]
+        print(npdata.shape)
+        print(npdata[:,8])
+
+        # Timing seperation:
+        timing_sep = np.linspace(t.min(), t.max(),self.n_components+1)
+        print(timing_sep)
+
+        for i, g in tqdm(enumerate(self.gaussians), desc='Time-based init'):
+            # Select elements:
+            idtmp = (t>=timing_sep[i])*(t<timing_sep[i+1]) 
+            sl =  np.ix_( idtmp, range(npdata.shape[1]) )
+            print(npdata[sl].shape)
+            tmpdata = self.manifold.np_to_manifold( npdata[sl] )
+
+            # Perform mle:
+            g.mle(tmpdata, reg_lambda=reg_lambda, reg_type=reg_type)
+            self.priors[i] = len(idtmp)
+        self.priors = self.priors / self.priors.sum()
 
     # @logger.contextualize(filter=False)
     def kmeans(self,data, maxsteps=100,reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE ):

@@ -83,6 +83,8 @@ def eucl_parallel_transport(Xg, g, h, t=1):
 # -----------------     Quaternion Action, Log and Exponential        
 def arccos_star(rho):
     if type(rho) is not np.ndarray:
+        # print("single")
+
         # Check rho
         if abs(rho)>1:
             # Check error:
@@ -98,6 +100,8 @@ def arccos_star(rho):
         else:
             return np.arccos(rho)
     else:
+        # print("batch")
+        # return np.arccos(rho)
         # Batch mode:
         rho = np.array([rho])
         
