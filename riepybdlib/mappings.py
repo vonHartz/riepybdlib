@@ -118,6 +118,30 @@ def arccos_star(rho):
 
         return acos_rho
 
+def arccos_cont(rho):
+    if type(rho) is not np.ndarray:
+        raise NotImplementedError(
+            "Continous arccos not implemented for single values. "
+            "Need to feed a reference value for orientation.")
+    else:
+        # print("batch")
+        # return np.arccos(rho)
+        # Batch mode:
+        rho = np.array([rho])
+        
+        ones = np.ones(rho.shape)
+        rho = np.max(np.vstack( (rho,-1*ones ) ), axis=0)
+        rho = np.min(np.vstack( (rho, 1*ones ) ), axis=0)
+
+        acos_rho = np.zeros(rho.shape)
+        sl1 = np.ix_ ((-1.0 <= rho)*(rho < 0.0)==1)
+        sl2 = np.ix_ ((1.0 > rho)*(rho >= 0.0)==1)
+
+        acos_rho[sl1] = np.arccos(rho[sl1]) - np.pi
+        acos_rho[sl2] = np.arccos(rho[sl2])
+
+        return acos_rho
+
 quat_id = ar.Quaternion(1, np.zeros(3) )
 
 def quat_action(x,g,h):
@@ -135,6 +159,8 @@ def quat_log_e(g, reg=1e-6):
         # compute tangent values for quaternions which have q0 other than 1.0 - reg
         # Slices:
         g_np0_abs = abs(g_np[:,0]-1.0) > reg
+
+
         sl_123 = np.ix_(g_np0_abs, range(1,4) )
         sl_012 = np.ix_(g_np0_abs, range(3) )
         sl_0   = np.ix_(g_np0_abs, [0] )
@@ -144,8 +170,13 @@ def quat_log_e(g, reg=1e-6):
         qnorm   = g_np[sl_123].T/ np.linalg.norm(g_np[sl_123], axis=1)
         g_tan[sl_012] = (qnorm*acos_q0).T
 
+        if np.isnan(g_tan).any():
+            raise ValueError("quat_log_e: nan in tangent values.")
+
         return g_tan
     else:
+        # raise NotImplementedError("Continous version not implemented for "
+        #                           "single values yet.")
         # Single mode:
         if abs(g.q0 - 1.0)>reg:
             return arccos_star(g.q0)* (g.q/np.linalg.norm(g.q))

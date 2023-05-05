@@ -185,7 +185,7 @@ class Manifold(object):
         
         return Manifold(manlist=manlist)
         
-    def exp(self,g_tan, base=None, reg=1e-10):
+    def exp(self,g_tan, base=None, reg=1e-6):
         ''' Manifold Exponential map
 
         Arguments
@@ -226,7 +226,7 @@ class Manifold(object):
         else:
             return  tuple(tmp)
             
-    def log(self,g, base=None, reg=1e-10, dim=None):
+    def log(self,g, base=None, reg=1e-6, dim=None):
         '''Manifold Logarithmic map
 
         Arguments
