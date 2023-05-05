@@ -612,6 +612,9 @@ class GMM:
             self.priors = gamma0.sum(axis=1)   # Sum probabilities of being in state i
             self.priors = self.priors/self.priors.sum() # Normalize
 
+            # NOTE: for debugging
+            # print(self.mu)
+
             # Check for convergence:
             avglik = -np.log(lik.sum(0)+1e-200).mean()
             if abs(avglik - prvlik) < convthres and st > minsteps:
@@ -653,18 +656,16 @@ class GMM:
     def init_time_based_from_np(self, npdata, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE):
         # Assuming that data is first manifold dimension
         t = npdata[:,0]
-        print(npdata.shape)
-        print(npdata[:,8])
 
         # Timing seperation:
         timing_sep = np.linspace(t.min(), t.max(),self.n_components+1)
-        print(timing_sep)
 
-        for i, g in tqdm(enumerate(self.gaussians), desc='Time-based init'):
+        for i, g in tqdm(enumerate(self.gaussians), desc='Time-based init',
+                         total=self.n_components):
             # Select elements:
-            idtmp = (t>=timing_sep[i])*(t<timing_sep[i+1]) 
+            idtmp = (t>=timing_sep[i])*(t<timing_sep[i+1])
             sl =  np.ix_( idtmp, range(npdata.shape[1]) )
-            print(npdata[sl].shape)
+
             tmpdata = self.manifold.np_to_manifold( npdata[sl] )
 
             # Perform mle:
