@@ -222,6 +222,12 @@ class Gaussian(object):
         # Compute weighted distance
         #d = np.zeros(self.manifold.n_dimT)
         dtmp = self.manifold.log(x, base)
+        print(dtmp[:, 10:])
+        import matplotlib.pyplot as plt
+        for i in range(3):
+            plt.plot(dtmp[:, 10+i], label=f'{i}')  # *360/np.pi
+            plt.legend()
+        plt.show()
         #print('dtmp.shape: ' ,dtmp.shape)
         #print('h.shape: ', h.shape)
         d = h.dot(self.manifold.log(x, base))
@@ -667,6 +673,15 @@ class GMM:
             sl =  np.ix_( idtmp, range(npdata.shape[1]) )
 
             tmpdata = self.manifold.np_to_manifold( npdata[sl] )
+
+            # from lovely_numpy import lo
+            # # print(len(tmpdata))
+            # # print(len(tmpdata[0]), type(tmpdata[0]))
+            # # print(lo(tmpdata[0]))
+            # # print(lo(tmpdata[-1]))
+            # print('==================')
+            # print(npdata[sl][:, 11:])
+            # print(tmpdata[-1])
 
             # Perform mle:
             g.mle(tmpdata, reg_lambda=reg_lambda, reg_type=reg_type)

@@ -132,6 +132,14 @@ def arccos_cont(rho, initial_ref=np.pi/4, reg=1e-6):
         return result[0]
     else:
         return np.arccos(rho)
+
+        # for i in range(1, acos.shape[0]):
+        #     if np.sign(acos[i]) != np.sign(acos[i-1]) and \
+        #             acos[i] - acos[i-1] >= 1e-3:
+        #         acos[i] = -acos[i]
+
+        # return acos
+
         # ref_rho = np.concatenate((np.array([initial_ref]), rho[:-1]))
         # print(rho.min(), rho.max(), rho.shape, np.array([initial_ref]).shape)
         # raise KeyboardInterrupt
@@ -161,6 +169,12 @@ def quat_log_e(g, reg=1e-6):
     if type(g) is list:
         # Batch mode:
         g_np = ar.Quaternion.to_nparray_st(g)
+
+        import matplotlib.pyplot as plt
+        for i in range(4):
+            plt.plot(g_np[:, i], label=f'{i}')  # *360/np.pi
+            plt.legend()
+        plt.show()
     
         # Create tangent values, and initalize to zero
         g_tan = np.zeros( (g_np.shape[0], 3) )
@@ -177,6 +191,14 @@ def quat_log_e(g, reg=1e-6):
         acos_q0 = arccos_cont(g_np[sl_0][:,0])
         qnorm   = g_np[sl_123].T/ np.linalg.norm(g_np[sl_123], axis=1)
         g_tan[sl_012] = (qnorm*acos_q0).T
+
+        assert len(g_tan.shape) == 2
+        for i in range(1, g_tan.shape[0]):
+            # if abs(g_tan[i,0] - g_tan[i-1,0]) >= np.pi/2 - reg:
+            #     g_tan[i] = g_tan[i] + np.sign(g_tan[i-1,0] - g_tan[i,0])*np.pi/2
+            # Test if at least two of the values have changed sign:
+            if np.abs(np.sign(g_tan[i]) - np.sign(g_tan[i-1])).sum(axis=-1)/2 >= 2:
+                g_tan[i] = -g_tan[i]
 
         if np.isnan(g_tan).any():
             raise ValueError("quat_log_e: nan in tangent values.")
