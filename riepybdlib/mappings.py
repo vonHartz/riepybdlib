@@ -118,27 +118,36 @@ def arccos_star(rho):
 
         return acos_rho
 
-def arccos_cont(rho):
+def arccos_cont(rho, initial_ref=np.pi/4, reg=1e-6):
+    """
+    With arccos_star, the arccos function is not continuous but can jump
+    between -180 degress and 180 degrees. This function takes the previous
+    value into account to make the function continuous.
+    For the first value, the initial_ref is used. I've set this to pi/4 to
+    correspond to prefer positive rotations.
+    """
     if type(rho) is not np.ndarray:
-        raise NotImplementedError(
-            "Continous arccos not implemented for single values. "
-            "Need to feed a reference value for orientation.")
+        batched = np.array([rho])
+        result = arccos_cont(batched, initial_ref)
+        return result[0]
     else:
-        # print("batch")
-        # return np.arccos(rho)
-        # Batch mode:
-        rho = np.array([rho])
-        
-        ones = np.ones(rho.shape)
-        rho = np.max(np.vstack( (rho,-1*ones ) ), axis=0)
-        rho = np.min(np.vstack( (rho, 1*ones ) ), axis=0)
+        return np.arccos(rho)
+        # ref_rho = np.concatenate((np.array([initial_ref]), rho[:-1]))
+        # print(rho.min(), rho.max(), rho.shape, np.array([initial_ref]).shape)
+        # raise KeyboardInterrupt
+        # rho = np.array([rho])
 
-        acos_rho = np.zeros(rho.shape)
-        sl1 = np.ix_ ((-1.0 <= rho)*(rho < 0.0)==1)
-        sl2 = np.ix_ ((1.0 > rho)*(rho >= 0.0)==1)
+        acos_rho = np.arccos(rho)
+        half_rot = np.pi/2
+        # sl1 = np.ix_(abs(ref_rho - rho) >= half_rot - reg)
 
-        acos_rho[sl1] = np.arccos(rho[sl1]) - np.pi
-        acos_rho[sl2] = np.arccos(rho[sl2])
+        if abs(initial_ref - rho[0]) >= half_rot - reg:
+            acos_rho[0] = acos_rho[0] + np.sign(initial_ref - rho[0])*np.pi
+
+        for i in range(1, acos_rho.shape[0]):
+            if acos_rho[i] - acos_rho[i-1] >= half_rot - reg:
+                acos_rho[i] = acos_rho[i] + np.sign(
+                    acos_rho[i-1] - acos_rho[i])*np.pi
 
         return acos_rho
 
@@ -160,13 +169,12 @@ def quat_log_e(g, reg=1e-6):
         # Slices:
         g_np0_abs = abs(g_np[:,0]-1.0) > reg
 
-
         sl_123 = np.ix_(g_np0_abs, range(1,4) )
         sl_012 = np.ix_(g_np0_abs, range(3) )
         sl_0   = np.ix_(g_np0_abs, [0] )
 
         # Compute tangent values:
-        acos_q0 = arccos_star(g_np[sl_0][:,0])
+        acos_q0 = arccos_cont(g_np[sl_0][:,0])
         qnorm   = g_np[sl_123].T/ np.linalg.norm(g_np[sl_123], axis=1)
         g_tan[sl_012] = (qnorm*acos_q0).T
 
@@ -179,7 +187,7 @@ def quat_log_e(g, reg=1e-6):
         #                           "single values yet.")
         # Single mode:
         if abs(g.q0 - 1.0)>reg:
-            return arccos_star(g.q0)* (g.q/np.linalg.norm(g.q))
+            return arccos_cont(g.q0)* (g.q/np.linalg.norm(g.q))
         else:
             return np.zeros(3)
     
