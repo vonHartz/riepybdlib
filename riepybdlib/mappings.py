@@ -164,20 +164,22 @@ quat_id = ar.Quaternion(1, np.zeros(3) )
 def quat_action(x,g,h):
     return h*g.i()*x
 
-def quat_log_e(g, reg=1e-6):
+def quat_log_e(g, reg=1e-6, arccos_func=arccos_cont):
     d_added = False
     if type(g) is list:
         # Batch mode:
         g_np = ar.Quaternion.to_nparray_st(g)
 
-        import matplotlib.pyplot as plt
-        g_np_per_traj = g_np.reshape(20,-1,4)
-        fig, ax = plt.subplots(1, 4)
-        fig.set_size_inches(16, 4)
-        for j in range(20):
-            for i in range(4):
-                ax[i].plot(g_np_per_traj[j, :, i])
-        plt.show()
+        # import matplotlib.pyplot as plt
+        # from riepybdlib.plot import get_cycle
+        # plt.rcParams["axes.prop_cycle"] = get_cycle("tab20c")
+        # g_np_per_traj = g_np.reshape(20,-1,4)
+        # fig, ax = plt.subplots(1, 4)
+        # fig.set_size_inches(16, 4)
+        # for j in range(20):
+        #     for i in range(4):
+        #         ax[i].plot(g_np_per_traj[j, :, i])
+        # plt.show()
     
         # Create tangent values, and initalize to zero
         g_tan = np.zeros( (g_np.shape[0], 3) )
@@ -191,17 +193,23 @@ def quat_log_e(g, reg=1e-6):
         sl_0   = np.ix_(g_np0_abs, [0] )
 
         # Compute tangent values:
-        acos_q0 = arccos_cont(g_np[sl_0][:,0])
+        acos_q0 = arccos_func(g_np[sl_0][:,0])
         qnorm   = g_np[sl_123].T/ np.linalg.norm(g_np[sl_123], axis=1)
         g_tan[sl_012] = (qnorm*acos_q0).T
 
-        g_tan_per_traj = g_tan.reshape(20,-1,3)
-        fig, ax = plt.subplots(1, 3)
-        fig.set_size_inches(16, 3)
-        for j in range(20):
-            for i in range(3):
-                ax[i].plot(g_tan_per_traj[j, :, i])
-        plt.show()
+        # invert gtan with first angle < 0
+        # g_tan_neg = g_tan[:,0] < 0
+        # g_tan[g_tan_neg,:] = -g_tan[g_tan_neg,:]
+
+        # g_tan_per_traj = g_tan.reshape(20,-1,3)
+        # fig, ax = plt.subplots(1, 3)
+        # fig.set_size_inches(16, 3)
+        # for j in range(20):
+        #     for i in range(3):
+        #         ax[i].plot(g_tan_per_traj[j, :, i])
+        # for j in range(3):
+        #     ax[i].set_ylim([-1.5, 1.5])
+        # plt.show()
 
         # assert len(g_tan.shape) == 2
         # for i in range(1, g_tan.shape[0]):
@@ -230,7 +238,7 @@ def quat_log_e(g, reg=1e-6):
         #                           "single values yet.")
         # Single mode:
         if abs(g.q0 - 1.0)>reg:
-            return arccos_cont(g.q0)* (g.q/np.linalg.norm(g.q))
+            return arccos_func(g.q0)* (g.q/np.linalg.norm(g.q))
         else:
             return np.zeros(3)
     

@@ -222,10 +222,10 @@ class Gaussian(object):
         # Compute weighted distance
         #d = np.zeros(self.manifold.n_dimT)
         dtmp = self.manifold.log(x, base)
-        print(dtmp[:, 10:])
         import matplotlib.pyplot as plt
+        colors = ['tab:blue', 'tab:orange', 'tab:green']
         for i in range(3):
-            plt.plot(dtmp[:, 10+i], label=f'{i}')  # *360/np.pi
+            plt.plot(dtmp[:, 10+i], label=f'{i}', c=colors[i])  # *360/np.pi
             plt.legend()
         plt.show()
         #print('dtmp.shape: ' ,dtmp.shape)
@@ -668,6 +668,7 @@ class GMM:
 
         for i, g in tqdm(enumerate(self.gaussians), desc='Time-based init',
                          total=self.n_components):
+            logger.info('Fitting GMM component %i/%i'%(i+1, self.n_components))
             # Select elements:
             idtmp = (t>=timing_sep[i])*(t<timing_sep[i+1])
             sl =  np.ix_( idtmp, range(npdata.shape[1]) )
