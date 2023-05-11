@@ -171,9 +171,12 @@ def quat_log_e(g, reg=1e-6):
         g_np = ar.Quaternion.to_nparray_st(g)
 
         import matplotlib.pyplot as plt
-        for i in range(4):
-            plt.plot(g_np[:, i], label=f'{i}')  # *360/np.pi
-            plt.legend()
+        g_np_per_traj = g_np.reshape(20,-1,4)
+        fig, ax = plt.subplots(1, 4)
+        fig.set_size_inches(16, 4)
+        for j in range(20):
+            for i in range(4):
+                ax[i].plot(g_np_per_traj[j, :, i])
         plt.show()
     
         # Create tangent values, and initalize to zero

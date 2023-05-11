@@ -683,6 +683,10 @@ class GMM:
             # print(npdata[sl][:, 11:])
             # print(tmpdata[-1])
 
+            # print(len(tmpdata), tmpdata[0].shape)
+            # print(sl)
+            # raise KeyboardInterrupt
+
             # Perform mle:
             g.mle(tmpdata, reg_lambda=reg_lambda, reg_type=reg_type)
             self.priors[i] = len(idtmp)
