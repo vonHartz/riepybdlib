@@ -195,13 +195,31 @@ def quat_log_e(g, reg=1e-6):
         qnorm   = g_np[sl_123].T/ np.linalg.norm(g_np[sl_123], axis=1)
         g_tan[sl_012] = (qnorm*acos_q0).T
 
-        assert len(g_tan.shape) == 2
-        for i in range(1, g_tan.shape[0]):
-            # if abs(g_tan[i,0] - g_tan[i-1,0]) >= np.pi/2 - reg:
-            #     g_tan[i] = g_tan[i] + np.sign(g_tan[i-1,0] - g_tan[i,0])*np.pi/2
-            # Test if at least two of the values have changed sign:
-            if np.abs(np.sign(g_tan[i]) - np.sign(g_tan[i-1])).sum(axis=-1)/2 >= 2:
-                g_tan[i] = -g_tan[i]
+        g_tan_per_traj = g_tan.reshape(20,-1,3)
+        fig, ax = plt.subplots(1, 3)
+        fig.set_size_inches(16, 3)
+        for j in range(20):
+            for i in range(3):
+                ax[i].plot(g_tan_per_traj[j, :, i])
+        plt.show()
+
+        # assert len(g_tan.shape) == 2
+        # for i in range(1, g_tan.shape[0]):
+        #     # if abs(g_tan[i,0] - g_tan[i-1,0]) >= np.pi/2 - reg:
+        #     #     g_tan[i] = g_tan[i] + np.sign(g_tan[i-1,0] - g_tan[i,0])*np.pi/2
+        #     # Test if at least two of the values have changed sign:
+        #     if np.abs(np.sign(g_tan[i]) - np.sign(g_tan[i-1])).sum(axis=-1)/2 >= 2:
+        #         g_tan[i] = -g_tan[i]
+
+        # g_tan_per_traj = g_tan.reshape(20,-1,3)
+        # fig, ax = plt.subplots(1, 3)
+        # fig.set_size_inches(16, 3)
+        # for j in range(20):
+        #     for i in range(3):
+        #         ax[i].plot(g_tan_per_traj[j, :, i])
+        # plt.show()
+
+        # raise KeyboardInterrupt
 
         if np.isnan(g_tan).any():
             raise ValueError("quat_log_e: nan in tangent values.")
