@@ -229,6 +229,9 @@ class Quaternion(object):
             ])
         return R
     
+    def axis_angle(self):
+        return get_axisangle(self.to_nparray())
+    
     def __str__(self):
         return "Q({0:.2f}, {1})".format(self.q0,self.q)
 

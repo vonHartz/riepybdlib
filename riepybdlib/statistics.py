@@ -184,7 +184,8 @@ class Gaussian(object):
         mu = self.mu
         diff =1.0
         it = 0;
-        while (diff > 1e-8): 
+        while (diff > 1e-6): 
+            print(diff)
             delta = self.__get_weighted_distance(x, mu, h)
             mu = self.manifold.exp(delta, mu)
             diff = sum(delta*delta)
@@ -218,7 +219,6 @@ class Gaussian(object):
                 raise RuntimeError('Could not determine dimension of input')
             h = np.ones(n_data)/n_data
 
-            
         # Compute weighted distance
         #d = np.zeros(self.manifold.n_dimT)
         dtmp = self.manifold.log(x, base)
@@ -230,6 +230,7 @@ class Gaussian(object):
         plt.show()
         #print('dtmp.shape: ' ,dtmp.shape)
         #print('h.shape: ', h.shape)
+        print(base[-1])
         d = h.dot(self.manifold.log(x, base))
         #print('d.shape: ', d.shape)
 
@@ -668,7 +669,8 @@ class GMM:
 
         for i, g in tqdm(enumerate(self.gaussians), desc='Time-based init',
                          total=self.n_components):
-            logger.info('Fitting GMM component %i/%i'%(i+1, self.n_components))
+            logger.info('Fitting GMM component %i/%i'%(i+1, self.n_components),
+                        filter=False)
             # Select elements:
             idtmp = (t>=timing_sep[i])*(t<timing_sep[i+1])
             sl =  np.ix_( idtmp, range(npdata.shape[1]) )
