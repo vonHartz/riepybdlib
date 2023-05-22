@@ -222,15 +222,20 @@ class Gaussian(object):
         # Compute weighted distance
         #d = np.zeros(self.manifold.n_dimT)
         dtmp = self.manifold.log(x, base)
+        base_mani = self.manifold.log(self.manifold.id_elem, base)
         import matplotlib.pyplot as plt
         colors = ['tab:blue', 'tab:orange', 'tab:green']
+        labels = ['x', 'y', 'z']
         for i in range(3):
-            plt.plot(dtmp[:, 10+i], label=f'{i}', c=colors[i])  # *360/np.pi
-            plt.legend()
+            plt.plot(dtmp[:, 10+i]*360/np.pi, label=labels[i], c=colors[i])  # *360/np.pi
+        for i in range(3):  # for nicer legend order
+            plt.axhline(base_mani[10+i]*360/np.pi, color=colors[i],
+                        label=f'id {labels[i]}', linestyle = 'dashed') 
+        plt.legend(ncols=2)
         plt.show()
+        # print(base[-1])
         #print('dtmp.shape: ' ,dtmp.shape)
         #print('h.shape: ', h.shape)
-        print(base[-1])
         d = h.dot(self.manifold.log(x, base))
         #print('d.shape: ', d.shape)
 
