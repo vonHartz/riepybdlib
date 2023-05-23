@@ -224,13 +224,19 @@ class Gaussian(object):
         dtmp = self.manifold.log(x, base)
         base_mani = self.manifold.log(self.manifold.id_elem, base)
         import matplotlib.pyplot as plt
-        colors = ['tab:blue', 'tab:orange', 'tab:green']
+        colors = tuple(('tab:red', 'tab:green', 'tab:blue'))
         labels = ['x', 'y', 'z']
-        for i in range(3):
-            plt.plot(dtmp[:, 10+i]*360/np.pi, label=labels[i], c=colors[i])  # *360/np.pi
-        for i in range(3):  # for nicer legend order
-            plt.axhline(base_mani[10+i]*360/np.pi, color=colors[i],
-                        label=f'id {labels[i]}', linestyle = 'dashed') 
+        n_frames = (dtmp.shape[1] - 1 ) // 6
+        fig, ax = plt.subplots(1, n_frames)
+        if n_frames == 1:
+            ax = [ax]
+        for c in range(n_frames):
+            j = 1 + 6*c + 3   # time, 6D per frame, then skip over 3 pos dims
+            for i in range(3):
+                ax[c].plot(dtmp[:, j+i]*360/np.pi, label=labels[i], c=colors[i])  # *360/np.pi
+            for i in range(3):  # for nicer legend order
+                ax[c].axhline(base_mani[j+i]*360/np.pi, color=colors[i],
+                            label=f'id {labels[i]}', linestyle = 'dashed') 
         plt.legend(ncols=2)
         plt.show()
         # print(base[-1])
