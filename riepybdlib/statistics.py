@@ -190,16 +190,41 @@ class Gaussian(object):
         diff =1.0
         it = 0;
         if plot_process:
+            from matplotlib.animation import FuncAnimation, ArtistAnimation
+
             # Size of x is number of manifolds. First mani might be time, then
             # per frame pos, rot, (pos delta, rot delta).
             # Not interested in time and pos (and pos delta), so // 2.
             n_frames = len(x) // 2
             fig, ax = plt.subplots(1, n_frames)
+            fig.set_size_inches(n_frames*3, 5)
             if n_frames == 1:
                 ax = [ax]
+            artists = []
+
+            def update(dtmp, base_mani):
+                # n_frames = dtmp.shape[1] // 6
+                it_artists = []
+                for c in range(n_frames):
+                    j = 1 + 6*c + 3   # time, 6D per frame, then skip over 3 pos dims
+                    for i in range(3):
+                        it_artists.append(
+                            ax[c].plot(dtmp[:, j+i]*360/np.pi, label=labels[i],
+                                       c=colors[i]))
+                        it_artists.append(
+                            ax[c].axhline(base_mani[j+i]*360/np.pi, color=colors[i],
+                                    label=f'id {labels[i]}', linestyle = 'dashed'))
+                    # for i in range(3):  # for nicer legend order
+                    #     ax[c].axhline(base_mani[j+i]*360/np.pi, color=colors[i],
+                    #                 label=f'id {labels[i]}', linestyle = 'dashed') 
+                # fig.legend(ncols=2)
+                # plt.show()
+                return it_artists
+            
         while (diff > 1e-6): 
             logger.info(f'Mean computation iter {it} current diff: {diff}')
-            delta = self.__get_weighted_distance(x, mu, h, plot=(fig, ax))
+            delta = self.__get_weighted_distance(x, mu, h, plot_cb=update,
+                                                 plot_artists=artists)
             mu = self.manifold.exp(delta, mu)
             diff = sum(delta*delta)
             
@@ -208,10 +233,17 @@ class Gaussian(object):
                 raise RuntimeWarning('Gaussian mle not converged in 50 iterations.')
                 break
         #print('Converged after {0} iterations.'.format(it))
-        
+
+        if plot_process:
+            ani = ArtistAnimation(fig, artists, interval=10, repeat=True)
+            ani.save("a.gif", writer="imagemagick")
+            raise KeyboardInterrupt
+            plt.show()
+
         return mu
         
-    def __get_weighted_distance(self, x, base, h=None, plot=None):
+    def __get_weighted_distance(self, x, base, h=None, plot_cb=None,
+                                plot_artists=None):
         ''' Compute the weighted distance between base and the elements of X
         base: The base of the distance measure usedmanifold element
         x   : (list of) manifold element(s)
@@ -237,19 +269,6 @@ class Gaussian(object):
         dtmp = self.manifold.log(x, base)
         base_mani = self.manifold.log(self.manifold.id_elem, base)
 
-        if plot is not None:
-            fig, ax = plot
-
-        n_frames = dtmp.shape[1] // 6
-        for c in range(n_frames):
-            j = 1 + 6*c + 3   # time, 6D per frame, then skip over 3 pos dims
-            for i in range(3):
-                ax[c].plot(dtmp[:, j+i]*360/np.pi, label=labels[i], c=colors[i])  # *360/np.pi
-            for i in range(3):  # for nicer legend order
-                ax[c].axhline(base_mani[j+i]*360/np.pi, color=colors[i],
-                              label=f'id {labels[i]}', linestyle = 'dashed') 
-        fig.legend(ncols=2)
-        plt.show()
         # print(base[-1])
         #print('dtmp.shape: ' ,dtmp.shape)
         #print('h.shape: ', h.shape)
@@ -258,6 +277,11 @@ class Gaussian(object):
 
         #for i,val in enumerate(x):
         #    d += h[i]*self.manifold.log(base, val)
+
+        if plot_cb is not None:
+            it_artists = plot_cb(dtmp, base_mani)
+            plot_artists.append(it_artists)
+
         return d
 
     def __empirical_covariance(self, x, h=None, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE):
