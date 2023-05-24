@@ -167,7 +167,7 @@ class Gaussian(object):
         return Gaussian(self.manifold.get_submanifold(i_in),mu_m, sigma_m  )
 
     def mle(self, x, h=None, reg_lambda=1e-3,
-            reg_type=RegularizationType.SHRINKAGE, plot_process=True):
+            reg_type=RegularizationType.SHRINKAGE, plot_process=False):
         '''Maximum Likelihood Estimate
         x         : input data
         h         : optional list of weights
@@ -190,7 +190,8 @@ class Gaussian(object):
         diff =1.0
         it = 0;
         if plot_process:
-            from matplotlib.animation import FuncAnimation, ArtistAnimation
+            from matplotlib.animation import ArtistAnimation
+            from matplotlib.lines import Line2D
 
             # Size of x is number of manifolds. First mani might be time, then
             # per frame pos, rot, (pos delta, rot delta).
@@ -202,29 +203,44 @@ class Gaussian(object):
                 ax = [ax]
             artists = []
 
-            def update(dtmp, base_mani):
-                # n_frames = dtmp.shape[1] // 6
+            handles = [Line2D([0], [0], color=c, label=l)
+                       for c, l in zip(colors, labels)] + \
+                      [Line2D([0], [0], color='black', linestyle='solid',
+                                label='data'),
+                       Line2D([0], [0], color='black', linestyle='dashed',
+                                label='base')]
+            fig.legend(handles=handles, ncols=2)
+
+            def update(dtmp, base_mani, iter):
+                # fragment_length = 20
+                # n_fragmens = dtmp.shape[0] // fragment_length
+                # assert dtmp.shape[0] % fragment_length == 0
+
                 it_artists = []
                 for c in range(n_frames):
                     j = 1 + 6*c + 3   # time, 6D per frame, then skip over 3 pos dims
+                    # for f in range(n_fragmens):
                     for i in range(3):
-                        it_artists.append(
-                            ax[c].plot(dtmp[:, j+i]*360/np.pi, label=labels[i],
-                                       c=colors[i]))
+                        # fragment_slice = slice(f*fragment_length, (f+1)*fragment_length)
+                        # it_artists.extend(
+                        #     ax[c].plot(dtmp[fragment_slice, j+i]*360/np.pi,
+                        #                 label=labels[i], c=colors[i]))
+                        it_artists.extend(
+                            ax[c].plot(dtmp[:, j+i]*360/np.pi,c=colors[i]))
+                    for i in range(3):  # for nicer legend order
                         it_artists.append(
                             ax[c].axhline(base_mani[j+i]*360/np.pi, color=colors[i],
-                                    label=f'id {labels[i]}', linestyle = 'dashed'))
-                    # for i in range(3):  # for nicer legend order
-                    #     ax[c].axhline(base_mani[j+i]*360/np.pi, color=colors[i],
-                    #                 label=f'id {labels[i]}', linestyle = 'dashed') 
-                # fig.legend(ncols=2)
-                # plt.show()
+                                          linestyle = 'dashed'))
+                it_artists.append(ax[0].annotate(f'Iteration {iter}', (1,0)))
                 return it_artists
-            
+        else:
+            update = None
+            artists = None
+
         while (diff > 1e-6): 
             logger.info(f'Mean computation iter {it} current diff: {diff}')
             delta = self.__get_weighted_distance(x, mu, h, plot_cb=update,
-                                                 plot_artists=artists)
+                                                 plot_artists=artists, it=it)
             mu = self.manifold.exp(delta, mu)
             diff = sum(delta*delta)
             
@@ -235,15 +251,17 @@ class Gaussian(object):
         #print('Converged after {0} iterations.'.format(it))
 
         if plot_process:
-            ani = ArtistAnimation(fig, artists, interval=10, repeat=True)
-            ani.save("a.gif", writer="imagemagick")
-            raise KeyboardInterrupt
+            ani = ArtistAnimation(fig, artists, interval=200, repeat=True)
+            import datetime
+            file_name = f'/home/hartzj/Desktop/{datetime.datetime.now().strftime("%Y%m%d-%H%M%S")}.gif'
+            ani.save(file_name)  #, writer="imagemagick")
+            # raise KeyboardInterrupt
             plt.show()
 
         return mu
         
     def __get_weighted_distance(self, x, base, h=None, plot_cb=None,
-                                plot_artists=None):
+                                plot_artists=None, it=None):
         ''' Compute the weighted distance between base and the elements of X
         base: The base of the distance measure usedmanifold element
         x   : (list of) manifold element(s)
@@ -279,7 +297,7 @@ class Gaussian(object):
         #    d += h[i]*self.manifold.log(base, val)
 
         if plot_cb is not None:
-            it_artists = plot_cb(dtmp, base_mani)
+            it_artists = plot_cb(dtmp, base_mani, it)
             plot_artists.append(it_artists)
 
         return d
@@ -737,7 +755,8 @@ class GMM:
             # raise KeyboardInterrupt
 
             # Perform mle:
-            g.mle(tmpdata, reg_lambda=reg_lambda, reg_type=reg_type)
+            g.mle(tmpdata, reg_lambda=reg_lambda, reg_type=reg_type,
+                  plot_process=True)
             self.priors[i] = len(idtmp)
         self.priors = self.priors / self.priors.sum()
 
