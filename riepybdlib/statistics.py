@@ -35,6 +35,7 @@ along with RiePybDlib. If not, see <http://www.gnu.org/licenses/>.
 
 from loguru import logger
 from tqdm.auto import tqdm
+import matplotlib.pyplot as plt
 
 import numpy as np
 import pbdlib as pbd
@@ -49,6 +50,9 @@ class RegularizationType(Enum):
     NONE      = None
     SHRINKAGE = 1
     DIAGONAL  = 2
+
+colors = tuple(('tab:red', 'tab:green', 'tab:blue'))
+labels = ['x', 'y', 'z']
 
 # Taken from https://adamj.eu/tech/2021/10/13/how-to-create-a-transparent-attribute-alias-in-python/
 class Alias:
@@ -162,7 +166,8 @@ class Gaussian(object):
         
         return Gaussian(self.manifold.get_submanifold(i_in),mu_m, sigma_m  )
 
-    def mle(self, x, h=None, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE):
+    def mle(self, x, h=None, reg_lambda=1e-3,
+            reg_type=RegularizationType.SHRINKAGE, plot_process=True):
         '''Maximum Likelihood Estimate
         x         : input data
         h         : optional list of weights
@@ -171,12 +176,12 @@ class Gaussian(object):
         '''
         x = self.manifold.swapto_tupleoflist(x)
 
-        self.mu    = self.__empirical_mean(x, h)       
+        self.mu    = self.__empirical_mean(x, h, plot_process=plot_process)
         self.sigma = self.__empirical_covariance(x, h, reg_lambda, reg_type)
         return self
 
 
-    def __empirical_mean(self, x, h=None):
+    def __empirical_mean(self, x, h=None, plot_process=False):
         '''Compute Emperical mean
         x   : (list of) manifold element(s)
         h   : optional list of weights, if not specified weights we be taken equal
@@ -184,9 +189,17 @@ class Gaussian(object):
         mu = self.mu
         diff =1.0
         it = 0;
+        if plot_process:
+            # Size of x is number of manifolds. First mani might be time, then
+            # per frame pos, rot, (pos delta, rot delta).
+            # Not interested in time and pos (and pos delta), so // 2.
+            n_frames = len(x) // 2
+            fig, ax = plt.subplots(1, n_frames)
+            if n_frames == 1:
+                ax = [ax]
         while (diff > 1e-6): 
-            print(diff)
-            delta = self.__get_weighted_distance(x, mu, h)
+            logger.info(f'Mean computation iter {it} current diff: {diff}')
+            delta = self.__get_weighted_distance(x, mu, h, plot=(fig, ax))
             mu = self.manifold.exp(delta, mu)
             diff = sum(delta*delta)
             
@@ -198,7 +211,7 @@ class Gaussian(object):
         
         return mu
         
-    def __get_weighted_distance(self, x, base, h=None):
+    def __get_weighted_distance(self, x, base, h=None, plot=None):
         ''' Compute the weighted distance between base and the elements of X
         base: The base of the distance measure usedmanifold element
         x   : (list of) manifold element(s)
@@ -223,21 +236,19 @@ class Gaussian(object):
         #d = np.zeros(self.manifold.n_dimT)
         dtmp = self.manifold.log(x, base)
         base_mani = self.manifold.log(self.manifold.id_elem, base)
-        import matplotlib.pyplot as plt
-        colors = tuple(('tab:red', 'tab:green', 'tab:blue'))
-        labels = ['x', 'y', 'z']
-        n_frames = (dtmp.shape[1] - 1 ) // 6
-        fig, ax = plt.subplots(1, n_frames)
-        if n_frames == 1:
-            ax = [ax]
+
+        if plot is not None:
+            fig, ax = plot
+
+        n_frames = dtmp.shape[1] // 6
         for c in range(n_frames):
             j = 1 + 6*c + 3   # time, 6D per frame, then skip over 3 pos dims
             for i in range(3):
                 ax[c].plot(dtmp[:, j+i]*360/np.pi, label=labels[i], c=colors[i])  # *360/np.pi
             for i in range(3):  # for nicer legend order
                 ax[c].axhline(base_mani[j+i]*360/np.pi, color=colors[i],
-                            label=f'id {labels[i]}', linestyle = 'dashed') 
-        plt.legend(ncols=2)
+                              label=f'id {labels[i]}', linestyle = 'dashed') 
+        fig.legend(ncols=2)
         plt.show()
         # print(base[-1])
         #print('dtmp.shape: ' ,dtmp.shape)
