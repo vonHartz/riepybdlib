@@ -36,6 +36,7 @@ along with RiePybDlib. If not, see <http://www.gnu.org/licenses/>.
 from loguru import logger
 from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
+from IPython.display import HTML, display
 
 import numpy as np
 import pbdlib as pbd
@@ -231,7 +232,8 @@ class Gaussian(object):
                         it_artists.append(
                             ax[c].axhline(base_mani[j+i]*360/np.pi, color=colors[i],
                                           linestyle = 'dashed'))
-                it_artists.append(ax[0].annotate(f'Iteration {iter}', (1,0)))
+                it_artists.append(ax[0].annotate(f'Iteration {iter}', (0,0),
+                                  xycoords='figure fraction'))
                 return it_artists
         else:
             update = None
@@ -252,11 +254,16 @@ class Gaussian(object):
 
         if plot_process:
             ani = ArtistAnimation(fig, artists, interval=200, repeat=True)
-            import datetime
-            file_name = f'/home/hartzj/Desktop/{datetime.datetime.now().strftime("%Y%m%d-%H%M%S")}.gif'
-            ani.save(file_name)  #, writer="imagemagick")
+            html_widget = HTML(ani.to_jshtml())
+            display(html_widget)
+
+            # import datetime
+            # file_name = f'/home/hartzj/Desktop/{datetime.datetime.now().strftime("%Y%m%d-%H%M%S")}.gif'
+            # ani.save(file_name)  #, writer="imagemagick")
             # raise KeyboardInterrupt
-            plt.show()
+            # HTML(ani.to_jshtml())
+            # plt.show()
+
 
         return mu
         
