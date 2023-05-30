@@ -51,6 +51,7 @@ class RegularizationType(Enum):
     NONE      = None
     SHRINKAGE = 1
     DIAGONAL  = 2
+    COMBINED  = 3
 
 colors = tuple(('tab:red', 'tab:green', 'tab:blue'))
 labels = ['x', 'y', 'z']
@@ -135,7 +136,11 @@ class Gaussian(object):
             # Multiple elements
             dist=dist[:,None]
 
-        dist = ( dist * np.linalg.solve(self.sigma,dist.T).T ).sum(axis=(dist.ndim-1))
+        try:
+            dist = ( dist * np.linalg.solve(self.sigma,dist.T).T ).sum(axis=(dist.ndim-1))
+        except np.linalg.LinAlgError:
+            logger.warning('Singular matrix, using lstsq', filter=False)
+            dist = ( dist * np.linalg.lstsq(self.sigma,dist.T,rcond=None)[0].T ).sum(axis=(dist.ndim-1))
         probs =  np.exp( -0.5*dist )/reg 
 
         # Iterative
@@ -248,7 +253,8 @@ class Gaussian(object):
             
             it+=1
             if it >50:
-                raise RuntimeWarning('Gaussian mle not converged in 50 iterations.')
+                logger.warning('Gaussian mle not converged in 50 iterations.')
+                # raise RuntimeWarning('Gaussian mle not converged in 50 iterations.')
                 break
         #print('Converged after {0} iterations.'.format(it))
 
@@ -256,6 +262,7 @@ class Gaussian(object):
             ani = ArtistAnimation(fig, artists, interval=200, repeat=True)
             html_widget = HTML(ani.to_jshtml())
             display(html_widget)
+            plt.close(fig)
 
             # import datetime
             # file_name = f'/home/hartzj/Desktop/{datetime.datetime.now().strftime("%Y%m%d-%H%M%S")}.gif'
@@ -350,6 +357,8 @@ class Gaussian(object):
             return reg_lambda*np.diag(np.diag(sigma)) + (1-reg_lambda)*sigma
         elif (reg_type == RegularizationType.DIAGONAL):
             return sigma + reg_lambda*np.eye(len(sigma))
+        elif (reg_type == RegularizationType.COMBINED):
+            return reg_lambda*np.diag(np.diag(sigma)) + (1-reg_lambda)*sigma + 1e-6*np.eye(len(sigma))
         elif reg_type==None:
             return sigma
         else:
