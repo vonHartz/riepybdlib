@@ -172,7 +172,7 @@ class Gaussian(object):
         
         return Gaussian(self.manifold.get_submanifold(i_in),mu_m, sigma_m  )
 
-    def mle(self, x, h=None, reg_lambda=1e-3,
+    def mle(self, x, h=None, reg_lambda=1e-3, reg_lambda2=1e-3,
             reg_type=RegularizationType.SHRINKAGE, plot_process=False):
         '''Maximum Likelihood Estimate
         x         : input data
@@ -183,7 +183,8 @@ class Gaussian(object):
         x = self.manifold.swapto_tupleoflist(x)
 
         self.mu    = self.__empirical_mean(x, h, plot_process=plot_process)
-        self.sigma = self.__empirical_covariance(x, h, reg_lambda, reg_type)
+        self.sigma = self.__empirical_covariance(x, h, reg_lambda, reg_lambda2,
+                                                 reg_type)
         return self
 
 
@@ -316,7 +317,8 @@ class Gaussian(object):
 
         return d
 
-    def __empirical_covariance(self, x, h=None, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE):
+    def __empirical_covariance(self, x, h=None, reg_lambda=1e-3, reg_lambda2=1e-3,
+                               reg_type=RegularizationType.SHRINKAGE):
         '''Compute emperical mean
         x         : input data
         h         : optional list of weights
@@ -358,7 +360,7 @@ class Gaussian(object):
         elif (reg_type == RegularizationType.DIAGONAL):
             return sigma + reg_lambda*np.eye(len(sigma))
         elif (reg_type == RegularizationType.COMBINED):
-            return reg_lambda*np.diag(np.diag(sigma)) + (1-reg_lambda)*sigma + 1e-6*np.eye(len(sigma))
+            return reg_lambda*np.diag(np.diag(sigma)) + (1-reg_lambda)*sigma + reg_lambda2*np.eye(len(sigma))
         elif reg_type==None:
             return sigma
         else:
@@ -636,7 +638,7 @@ class GMM:
         return np.argmax(lik, axis=0)
 
     # @logger.contextualize(filter=False)
-    def fit(self, data, convthres=1e-5, maxsteps=100, minsteps=5, reg_lambda=1e-3, 
+    def fit(self, data, convthres=1e-5, maxsteps=100, minsteps=5, reg_lambda=1e-3,
             reg_type= RegularizationType.SHRINKAGE):
         '''Initialize trajectory GMM using a time-based approach'''
             
@@ -675,7 +677,7 @@ class GMM:
 
     # @logger.contextualize(filter=False)
     def fit_from_np(self, npdata, convthres=1e-5, maxsteps=100, minsteps=5, reg_lambda=1e-3, 
-                    reg_type= RegularizationType.SHRINKAGE):
+                    reg_lambda2=1e-3, reg_type= RegularizationType.SHRINKAGE):
         '''Initialize trajectory GMM using a time-based approach'''
 
         data = self.manifold.np_to_manifold(npdata)
@@ -694,7 +696,7 @@ class GMM:
             # Maximization:
             # - Update Gaussian:
             for i,gauss in enumerate(self.gaussians):
-                gauss.mle(data,gamma1[i,], reg_lambda, reg_type)
+                gauss.mle(data,gamma1[i,], reg_lambda, reg_lambda2, reg_type)
             # - Update priors: 
             self.priors = gamma0.sum(axis=1)   # Sum probabilities of being in state i
             self.priors = self.priors/self.priors.sum() # Normalize
