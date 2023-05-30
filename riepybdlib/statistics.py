@@ -204,6 +204,7 @@ class Gaussian(object):
             # per frame pos, rot, (pos delta, rot delta).
             # Not interested in time and pos (and pos delta), so // 2.
             n_frames = len(x) // 2
+            incl_time = len(x) % 2 == 1
             fig, ax = plt.subplots(1, n_frames)
             fig.set_size_inches(n_frames*3, 5)
             if n_frames == 1:
@@ -225,7 +226,7 @@ class Gaussian(object):
 
                 it_artists = []
                 for c in range(n_frames):
-                    j = 1 + 6*c + 3   # time, 6D per frame, then skip over 3 pos dims
+                    j = int(incl_time) + 6*c + 3   # time, 6D per frame, then skip over 3 pos dims
                     # for f in range(n_fragmens):
                     for i in range(3):
                         # fragment_slice = slice(f*fragment_length, (f+1)*fragment_length)
