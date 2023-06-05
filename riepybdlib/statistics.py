@@ -1529,7 +1529,7 @@ class HMM(GMM):
         if dep_mask is not None:
             self.sigma *= dep_mask
 
-        for it in range(nb_max_steps):
+        for it in tqdm(range(nb_max_steps), desc='HMM EM'):
 
             for n, demo in enumerate(demos):
                 s[n]['alpha'], s[n]['beta'], s[n]['gamma'], s[n]['zeta'], s[n]['c'] = HMM.compute_messages(self, demo, dep, table)
@@ -1541,6 +1541,8 @@ class HMM(GMM):
             gamma_trk = np.hstack([s[i]['gamma'][:, 0:-1] for i in range(nb_samples)])
 
             gamma2 = gamma / (np.sum(gamma, axis=1, keepdims=True) + realmin)
+            # In RBD-GMM: normalize over states and 'data' (?)
+            # Here: normalize over ?
 
             # M-step
             if not obs_fixed:
@@ -1560,7 +1562,8 @@ class HMM(GMM):
                 #         self.sigma[i] *= np.eye(self.sigma.shape[1])
                 for i,gauss in enumerate(self.gaussians):
                     # TODO: which gamma?
-                    gauss.mle(data,gamma1[i,], reg_lambda, reg_lambda2, reg_type)
+                    gauss.mle(data, gamma2[i,], reg_lambda, reg_lambda2, reg_type)
+                    # TODO: update priors?
 
                 if dep_mask is not None:
                     self.sigma *= dep_mask
