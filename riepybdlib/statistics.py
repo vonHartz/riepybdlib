@@ -1544,20 +1544,23 @@ class HMM(GMM):
 
             # M-step
             if not obs_fixed:
-                for i in range(self.nb_states):
-                    # Update centers
-                    self.mu[i] = np.einsum('a,ia->i',gamma2[i], data)
+                # for i in range(self.nb_states):
+                #     # Update centers
+                #     self.mu[i] = np.einsum('a,ia->i',gamma2[i], data)
 
-                    # Update covariances
-                    Data_tmp = data - self.mu[i][:, None]
-                    self.sigma[i] = np.einsum('ij,jk->ik',
-                                                    np.einsum('ij,j->ij', Data_tmp,
-                                                              gamma2[i, :]), Data_tmp.T)
-                    # Regularization
-                    self.sigma[i] = self.sigma[i] + self.reg
+                #     # Update covariances
+                #     Data_tmp = data - self.mu[i][:, None]
+                #     self.sigma[i] = np.einsum('ij,jk->ik',
+                #                                     np.einsum('ij,j->ij', Data_tmp,
+                #                                               gamma2[i, :]), Data_tmp.T)
+                #     # Regularization
+                #     self.sigma[i] = self.sigma[i] + self.reg
 
-                    if cov_type == 'diag':
-                        self.sigma[i] *= np.eye(self.sigma.shape[1])
+                #     if cov_type == 'diag':
+                #         self.sigma[i] *= np.eye(self.sigma.shape[1])
+                for i,gauss in enumerate(self.gaussians):
+                    # TODO: which gamma?
+                    gauss.mle(data,gamma1[i,], reg_lambda, reg_lambda2, reg_type)
 
                 if dep_mask is not None:
                     self.sigma *= dep_mask
