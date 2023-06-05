@@ -104,10 +104,10 @@ class Gaussian(object):
         else:
             self.sigma = sigma
 
-    def prob_from_np(self, npdata):
+    def prob_from_np(self, npdata, log=False):
         data = self.manifold.np_to_manifold(npdata)
 
-        return self.prob(data)
+        return self.prob(data, log=log)
         
     def prob(self,data, log=False):
         '''Evaluate probability of sample
@@ -1297,13 +1297,15 @@ class HMM(GMM):
 
         if marginal is not None:
             marg_gmm = self.margin(marginal)
+        else:
+            marg_gmm = self
 
         if marginal != []:
             for i in range(self.nb_states):
 
                 if dep is None:
                     # evaluate the MVN at index i of marg_gmm at demo
-                    B[i, :] = marg_gmm[i].prob(demo, log=True)
+                    B[i, :] = marg_gmm.gaussians[i].prob_from_np(demo, log=True)
 
                 else:  # block diagonal computation
                     raise NotImplementedError(
@@ -1356,13 +1358,9 @@ class HMM(GMM):
             (can be used for time-series regression)
         :return:
         """
-        raise NotImplementedError
-        # NOTE: primarily need to update the demo-format
-        if isinstance(demo, np.ndarray):
-            sample_size = demo.shape[0]
-        elif isinstance(demo, dict):
-            sample_size = demo['x'].shape[0]
-        B, _ = self.obs_likelihood(demo, dep, marginal, sample_size)
+        sample_size = demo.shape[0]
+
+        B, _ = self.obs_likelihood(demo, dep, marginal)
         # if table is not None:
         # 	B *= table[:, [n]]
         self._B = B
@@ -1449,11 +1447,8 @@ class HMM(GMM):
             self.init_priors = np.ones(self.nb_states)/ self.nb_states
 
     def gmm_init(self, data, **kwargs):
-        raise NotImplementedError
-        # NOTE: need to replace em with fit_from_np/fit. Also data format.
-        if isinstance(data, list):
-            data = np.concatenate(data, axis=0)
-        GMM.em(self, data, **kwargs)
+        logger.info("Initializing HMM with GMM EM.")
+        GMM.fit_from_np(self, data, **kwargs)
 
         self.init_priors = np.ones(self.nb_states) / self.nb_states
         self.Trans = np.ones((self.nb_states, self.nb_states))/self.nb_states
@@ -1478,14 +1473,12 @@ class HMM(GMM):
 
     def em(self, demos, dep=None, reg=1e-8, table=None, end_cov=False, cov_type='full', dep_mask=None,
            reg_finish=None, left_to_right=False, nb_max_steps=40, loop=False, obs_fixed=False, trans_reg=None):
-        raise NotImplementedError
         # NOTE: need to update data format
         # understand dep.
         # look into differences in regularization.
         """
 
-        :param demos:	[list of np.array([nb_timestep, nb_dim])]
-                or [lisf of dict({})]
+        :param demos:
         :param dep:		[A x [B x [int]]] A list of list of dimensions or slices
             Each list of dimensions indicates a dependence of variables in the covariance matrix
             !!! dimensions should not overlap eg : [[0], [0, 1]] should be [[0, 1]], [[0, 1], [1, 2]] should be [[0, 1, 2]]
@@ -1509,13 +1502,12 @@ class HMM(GMM):
         nb_min_steps = 2  # min num iterations
         max_diff_ll = 1e-4  # max log-likelihood increase
 
-        nb_samples = len(demos)
+        nb_samples = demos.shape[0]
         data = np.concatenate(demos).T
-        nb_data = data.shape[0]
 
-        s = [{} for d in demos]
-        # stored log-likelihood
-        LL = np.zeros(nb_max_steps)
+        s = [{} for _ in demos]
+        LL = np.zeros(nb_max_steps)  # stored log-likelihood
+
 
         if dep is not None:
             dep_mask = self.get_dep_mask(dep)
@@ -1523,7 +1515,7 @@ class HMM(GMM):
         self.reg = reg
 
         if self.mu is None or self.sigma is None:
-            self.init_params_random(data.T, left_to_right=left_to_right)
+            raise ValueError("HMM not initialized")
 
         # create regularization matrix
 
@@ -1638,7 +1630,7 @@ class HMM(GMM):
         return ll
 
     def condition(self, data_in, dim_in, dim_out, h=None, return_gmm=False):
-        raise NotImplementedError
+        raise NotImplementedError("Thought this was not used.")
         # NOTE: need to ensure signature is the same as for GMM (or modify super().condition())
         # understand what is h - can remove as its unused?
         # understand why for slice(0,1) the dim_in_msg are empty. Is this time?
@@ -1652,3 +1644,16 @@ class HMM(GMM):
             a, _, _, _, _ = self.compute_messages(data_in, marginal=dim_in_msg)
 
             return super().condition(data_in, dim_in, dim_out, h=a)
+        
+    # def copy(self):
+    #     other = HMM(self.manifold, self.n_components)
+
+    #     for i,gauss in enumerate(self.gaussians):
+    #         other.gaussians[i] = gauss.copy()
+    #     other.priors = deepcopy(self.priors)
+    #     other.base = deepcopy(self.base)
+
+    #     other._trans = deepcopy(self._trans)
+    #     other._init_priors = deepcopy(self._init_priors)
+
+    #     return other
