@@ -685,7 +685,8 @@ class GMM:
 
     # @logger.contextualize(filter=False)
     def fit_from_np(self, npdata, convthres=1e-5, maxsteps=100, minsteps=5, reg_lambda=1e-3, 
-                    reg_lambda2=1e-3, reg_type= RegularizationType.SHRINKAGE):
+                    reg_lambda2=1e-3, reg_type= RegularizationType.SHRINKAGE,
+                    plot=False):
         '''Initialize trajectory GMM using a time-based approach'''
 
         data = self.manifold.np_to_manifold(npdata)
@@ -700,11 +701,11 @@ class GMM:
             lik = self.expectation(data)
             gamma0 = (lik/ (lik.sum(axis=0) + 1e-200) )# Sum over states is one
             gamma1 = (gamma0.T/gamma0.sum(axis=1)).T # Sum over data is one
-
             # Maximization:
             # - Update Gaussian:
             for i,gauss in enumerate(self.gaussians):
-                gauss.mle(data,gamma1[i,], reg_lambda, reg_lambda2, reg_type)
+                gauss.mle(data,gamma1[i,], reg_lambda, reg_lambda2, reg_type,
+                          plot_process=plot)
             # - Update priors: 
             self.priors = gamma0.sum(axis=1)   # Sum probabilities of being in state i
             self.priors = self.priors/self.priors.sum() # Normalize
@@ -750,7 +751,7 @@ class GMM:
             self.priors[i] = len(idtmp)
         self.priors = self.priors / self.priors.sum()
 
-    def init_time_based_from_np(self, npdata, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE):
+    def init_time_based_from_np(self, npdata, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE, plot=False):
         # Assuming that data is first manifold dimension
         t = npdata[:,0]
 
@@ -782,7 +783,7 @@ class GMM:
 
             # Perform mle:
             g.mle(tmpdata, reg_lambda=reg_lambda, reg_type=reg_type,
-                  plot_process=True)
+                  plot_process=plot)
             self.priors[i] = len(idtmp)
         self.priors = self.priors / self.priors.sum()
 
@@ -840,7 +841,7 @@ class GMM:
 #            newgmm.gaussian[i] = gauss.action(newmu)
 
     # @logger.contextualize(filter=False)
-    def kmeans_from_np(self,npdata, maxsteps=100,reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE ):
+    def kmeans_from_np(self,npdata, maxsteps=100,reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE, plot=False):
 
         data = self.manifold.np_to_manifold(npdata)
         n_data = npdata.shape[0]
@@ -867,7 +868,8 @@ class GMM:
             for i, gauss in enumerate(self.gaussians):
                 sl = np.ix_( id_min==i , range(npdata.shape[1]))
                 dtmp = gauss.manifold.np_to_manifold(npdata[sl])
-                gauss.mle(dtmp, reg_lambda=reg_lambda, reg_type=reg_type)
+                gauss.mle(dtmp, reg_lambda=reg_lambda, reg_type=reg_type,
+                          plot_process=plot)
 
             #for i, gauss in enumerate(self.gaussians):
             #    tmp = [data[j] for j, x in enumerate(id_min) if x == i]
@@ -1471,11 +1473,10 @@ class HMM(GMM):
 
         self.init_priors = np.array([1.] + [0. for i in range(self.nb_states-1)])
 
-    def em(self, demos, dep=None, reg=1e-8, table=None, end_cov=False, cov_type='full', dep_mask=None,
-           reg_finish=None, left_to_right=False, nb_max_steps=40, loop=False, obs_fixed=False, trans_reg=None):
-        # NOTE: need to update data format
-        # understand dep.
-        # look into differences in regularization.
+    def em(self, demos, dep=None, reg=1e-8, table=None, end_cov=False,
+           cov_type='full', dep_mask=None, reg_finish=None,
+           left_to_right=False, nb_max_steps=40, loop=False, obs_fixed=False,
+           trans_reg=None):
         """
 
         :param demos:
@@ -1504,6 +1505,8 @@ class HMM(GMM):
 
         nb_samples = demos.shape[0]
         data = np.concatenate(demos).T
+
+        data_rbd = self.manifold.np_to_manifold(data.T)
 
         s = [{} for _ in demos]
         LL = np.zeros(nb_max_steps)  # stored log-likelihood
@@ -1541,28 +1544,26 @@ class HMM(GMM):
             gamma_trk = np.hstack([s[i]['gamma'][:, 0:-1] for i in range(nb_samples)])
 
             gamma2 = gamma / (np.sum(gamma, axis=1, keepdims=True) + realmin)
-            # In RBD-GMM: normalize over states and 'data' (?)
-            # Here: normalize over ?
+
+            # h = gamma2[i,]
+
+            # Get expectation of data
+            # print(data.shape, gamma.shape)  # (15, 1800) (4, 1800)
+            # raise KeyboardInterrupt
 
             # M-step
             if not obs_fixed:
-                # for i in range(self.nb_states):
-                #     # Update centers
-                #     self.mu[i] = np.einsum('a,ia->i',gamma2[i], data)
-
-                #     # Update covariances
-                #     Data_tmp = data - self.mu[i][:, None]
-                #     self.sigma[i] = np.einsum('ij,jk->ik',
-                #                                     np.einsum('ij,j->ij', Data_tmp,
-                #                                               gamma2[i, :]), Data_tmp.T)
-                #     # Regularization
-                #     self.sigma[i] = self.sigma[i] + self.reg
-
-                #     if cov_type == 'diag':
-                #         self.sigma[i] *= np.eye(self.sigma.shape[1])
+                expectation = self.expectation(data_rbd)
+                h = (expectation.T/expectation.sum(axis=1)).T
                 for i,gauss in enumerate(self.gaussians):
-                    # TODO: which gamma?
-                    gauss.mle(data, gamma2[i,], reg_lambda, reg_lambda2, reg_type)
+                    gauss.mle(data_rbd, h[i], None, None, None)
+
+                    # Regularization
+                    gauss.sigma += self.reg
+
+                    if cov_type == 'diag':
+                        gauss.sigma *= np.eye(gauss.sigma.shape[0])
+
                     # TODO: update priors?
 
                 if dep_mask is not None:
@@ -1594,14 +1595,15 @@ class HMM(GMM):
 
             # Check for convergence
             if it > nb_min_steps and LL[it] - LL[it - 1] < max_diff_ll:
-                print("EM converges")
+                logger.info("HMM EM converged")
                 if end_cov:
                     for i in range(self.nb_states):
                         # recompute covariances without regularization
+                        # TODO: replace with Riemannian data and algo
                         Data_tmp = data - self.mu[i][:, None]
-                        self.sigma[i] = np.einsum('ij,jk->ik',
-                                                np.einsum('ij,j->ij', Data_tmp,
-                                                          gamma2[i, :]), Data_tmp.T)
+                        self.sigma[i] = np.einsum(
+                            'ij,jk->ik', np.einsum('ij,j->ij', Data_tmp,
+                                                   gamma2[i, :]), Data_tmp.T)
                         if reg_finish is not None:
                             self.reg = reg_finish
                             self.sigma += self.reg[None]
@@ -1610,15 +1612,12 @@ class HMM(GMM):
                     if cov_type == 'diag':
                         self.sigma[i] *= np.eye(self.sigma.shape[1])
 
-                # print "EM converged after " + str(it) + " iterations"
-                # print LL[it]
-
                 if dep_mask is not None:
                     self.sigma *= dep_mask
 
                 return True
 
-        print("EM did not converge")
+        logger.warning("HMM EM did not converge")
         return False
 
     def score(self, demos):
