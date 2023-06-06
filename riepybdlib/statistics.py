@@ -38,10 +38,12 @@ from tqdm.auto import tqdm
 import matplotlib.pyplot as plt
 from IPython.display import HTML, display
 
+from functools import reduce
 import numpy as np
 import pbdlib as pbd
 import riepybdlib.manifold as rm
 import riepybdlib.plot as fctplt
+from scipy.linalg import block_diag
 
 from copy import deepcopy
 
@@ -49,6 +51,9 @@ from enum import Enum
 
 realmin = pbd.functions.realmin
 realmax = pbd.functions.realmax
+
+def multiply_iterable(l):
+    return reduce(lambda x, y: x*y, l)
 
 class RegularizationType(Enum):
     NONE      = None
@@ -514,7 +519,17 @@ class Gaussian(object):
         R = man.parallel_transport(np.eye(man.n_dimT), self.mu, h).T
         self.sigma = R.dot( self.sigma.dot(R.T) )
         self.mu = h
-    
+
+    def inv_trans_s(self, A, b):
+        raise NotImplementedError
+        # for compatibility with pbdlib's LQR
+        model = self.copy()
+        # inverse transform of homogegenous_trans
+        model.parallel_transport(-b)
+        model.tangent_action(A.T)
+
+        return model
+
     def plot_2d(self, ax, base=None, ix=0, iy=1,**kwargs):
         ''' Plot Gaussian'''
 
@@ -956,7 +971,7 @@ class GMM:
         model.parallel_transport(b)   # Move origin to new mean.
 
         return model
-    
+       
     def margin(self, i_in):
         # Construct new GMM:
         newgmm = GMM(self.manifold.get_submanifold(i_in), self.n_components)
@@ -1167,6 +1182,45 @@ class GMM:
     #     print(self.gaussians)
     #     return self.margin(idx)
 
+    def concatenate_gaussian(self, q, get_mvn=True, reg=None):
+        logger.warning("Code not tested yet.")
+        # print(q.shape)
+        # manis = [g.manifold for g in gaussians]
+        # joint_manifold = multiply_iterable(manis)
+        # print(type(self.gaussians[0].mu), type(self.gaussians[0].sigma))
+        # print(len(self.gaussians[0].mu), self.gaussians[0].sigma.shape)
+        # raise KeyboardInterrupt
+        # joint_mu = np.concatenate([g.mu for g in gaussians])
+        # mvn = MVNRBD(joint_manifold, joint_mu, joint_sigma)
+
+        if reg is None:
+            if not get_mvn:
+                # return np.concatenate([self.mu[i] for i in q]), block_diag(*[self.sigma[i] for i in q])
+                raise NotImplementedError
+            else:
+                mani = multiply_iterable([self.manifold for _ in q])
+                mus = tuple([self.mu[i] for i in q])
+                sigmas = block_diag(*[self.sigma[i] for i in q])
+
+                mvn = Gaussian(mani, mu=mus, sigma=sigmas)
+                # mvn.mu = np.concatenate([self.mu[i] for i in q])
+                # mvn._sigma = block_diag(*[self.sigma[i] for i in q])
+                # mvn._lmbda = block_diag(*[self.lmbda[i] for i in q])
+
+                return mvn
+        else:
+            raise NotImplementedError
+
+            # if not get_mvn:
+            #     return np.concatenate([self.mu[i] for i in q]), block_diag(
+            #         *[self.sigma[i] + reg for i in q])
+            # else:
+            #     mvn = MVN()
+            #     mvn.mu = np.concatenate([self.mu[i] for i in q])
+            #     mvn._sigma = block_diag(*[self.sigma[i] + reg for i in q])
+            #     mvn._lmbda = block_diag(*[np.linalg.inv(self.sigma[i] + reg) for i in q])
+
+            # return mvn
 
 class HMM(GMM):
     def __init__(self, manifold, n_components, base=None):
@@ -1241,9 +1295,8 @@ class HMM(GMM):
         :param demo: 	[np.array([nb_timestep, nb_dim])]
         :return:
         """
-        raise NotImplementedError
 
-        nb_data, dim = demo.shape if isinstance(demo, np.ndarray) else demo['x'].shape
+        nb_data, dim = demo.shape
 
         logB = np.zeros((self.nb_states, nb_data))
         logDELTA = np.zeros((self.nb_states, nb_data))
@@ -1324,10 +1377,9 @@ class HMM(GMM):
         :param reset:
         :return:
         """
-        raise NotImplementedError
-        # NOTE: need to at leat replace marginal_model with margin
-
         if (not hasattr(self, '_marginal_tmp') or reset) and marginal is not None:
+            raise NotImplementedError
+            # NOTE: need to at leat replace marginal_model with margin
             self._marginal_tmp = self.marginal_model(marginal)
 
         if marginal is not None:
