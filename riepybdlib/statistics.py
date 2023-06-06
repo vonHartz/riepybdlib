@@ -254,7 +254,7 @@ class Gaussian(object):
             artists = None
 
         while (diff > 1e-6): 
-            logger.info(f'Mean computation iter {it} current diff: {diff}')
+            # logger.info(f'Mean computation iter {it} current diff: {diff}')
             delta = self.__get_weighted_distance(x, mu, h, plot_cb=update,
                                                  plot_artists=artists, it=it)
             mu = self.manifold.exp(delta, mu)
@@ -760,8 +760,9 @@ class GMM:
 
         for i, g in tqdm(enumerate(self.gaussians), desc='Time-based init',
                          total=self.n_components):
-            logger.info('Fitting GMM component %i/%i'%(i+1, self.n_components),
-                        filter=False)
+            if plot:
+                logger.info('Fitting GMM component %i/%i'%(i+1, self.n_components),
+                            filter=False)
             # Select elements:
             idtmp = (t>=timing_sep[i])*(t<timing_sep[i+1])
             sl =  np.ix_( idtmp, range(npdata.shape[1]) )
@@ -1343,7 +1344,7 @@ class HMM(GMM):
 
         return self._alpha_tmp
 
-    def compute_messages(self, demo=None, dep=None, table=None, marginal=None, sample_size=200, demo_idx=None):
+    def compute_messages(self, demo=None, dep=None, table=None, marginal=None):
         """
 
         :param demo: 	[np.array([nb_timestep, nb_dim])]
@@ -1384,8 +1385,11 @@ class HMM(GMM):
         # backward variable beta (rescaled)
         beta = np.zeros((self.nb_states, sample_size))
         beta[:, -1] = np.ones(self.nb_states) * c[-1]  # Rescaling
+
         for t in range(sample_size - 2, -1, -1):
             beta[:, t] = np.dot(self.Trans, beta[:, t + 1] * B[:, t + 1])
+            # catch NaNs caused by overflow
+            beta[:, t] = np.where(np.isnan(beta[:, t]), realmax, beta[:, t])
             beta[:, t] = np.minimum(beta[:, t] * c[t], realmax)
 
         # Smooth node marginals, gamma
@@ -1400,7 +1404,6 @@ class HMM(GMM):
                 zeta[i, j, :] = self.Trans[i, j] * alpha[i, 0:-1] * B[j, 1:] * beta[
                                                                                j,
                                                                                1:]
-
         return alpha, beta, gamma, zeta, c
 
     def init_params_random(self, data, left_to_right=False, self_trans=0.9):
@@ -1573,6 +1576,10 @@ class HMM(GMM):
             self.init_priors = np.mean(gamma_init, axis=1)
 
             # Update transition probabilities
+            if np.isnan(zeta).any():
+                raise ValueError("Nan in zeta")
+            if np.isnan(gamma_trk).any():
+                raise ValueError("Nan in gamma_trk")
             self.Trans = np.sum(zeta, axis=2) / (np.sum(gamma_trk, axis=1) + realmin)
 
             if trans_reg is not None:
@@ -1582,7 +1589,6 @@ class HMM(GMM):
             if left_to_right or loop:
                 self.Trans *= mask
                 self.Trans /= np.sum(self.Trans, axis=1, keepdims=True)
-
 
             # print self.Trans
             # Compute avarage log-likelihood using alpha scaling factors
