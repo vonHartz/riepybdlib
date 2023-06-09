@@ -1554,8 +1554,21 @@ class HMM(GMM):
         :param end_cov:	[bool]
             If True, compute covariance matrix without regularization after convergence
         :param cov_type: 	[string] in ['full', 'diag', 'spherical']
+
+        trans_reg: reg for transition matrix
+        left_to_right: reg for transition matrix to be sequential model
+        loop: reg for transition matrix to be loop model
+            Both just mask the trans model and multiply other values by 0
+
+        dep_mask: mask for covariance matrix. Sets other values to zero.
+            Can use to remove unwanted covariances.
+
+
         :return:
         """
+        # TODO: understand use use end_cov, reg_finish, and cov_type
+        # TODO: understand dep (not dep_mask)
+
 
         if reg_finish is not None: end_cov = True
 
