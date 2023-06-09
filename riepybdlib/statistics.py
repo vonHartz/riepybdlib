@@ -521,6 +521,10 @@ class Gaussian(object):
         self.mu = h
 
     def inv_trans_s(self, A, b):
+        # print(A)
+        # print(b)
+        # print(A.shape)
+        # print(b.shape)
         raise NotImplementedError
         # for compatibility with pbdlib's LQR
         model = self.copy()
@@ -1611,7 +1615,7 @@ class HMM(GMM):
                 expectation = self.expectation(data_rbd)
                 h = (expectation.T/expectation.sum(axis=1)).T
                 for i,gauss in enumerate(self.gaussians):
-                    gauss.mle(data_rbd, h[i], None, None, None)
+                    gauss.mle(data_rbd, h[i], 1e-3, 1e-5, RegularizationType.COMBINED)
 
                     # Regularization
                     gauss.sigma += self.reg
@@ -1708,15 +1712,16 @@ class HMM(GMM):
 
             return super().condition(data_in, dim_in, dim_out, h=a)
         
-    # def copy(self):
-    #     other = HMM(self.manifold, self.n_components)
+    def copy(self):
+        other = HMM(self.manifold, self.n_components)
 
-    #     for i,gauss in enumerate(self.gaussians):
-    #         other.gaussians[i] = gauss.copy()
-    #     other.priors = deepcopy(self.priors)
-    #     other.base = deepcopy(self.base)
+        # Copy relevant parts from GMM
+        other.gaussians = [g.copy() for g in self.gaussians]
+        other.priors = np.copy(self.priors)
+        other.base = deepcopy(self.base)
 
-    #     other._trans = deepcopy(self._trans)
-    #     other._init_priors = deepcopy(self._init_priors)
+        # Copy HMM-specific parts
+        other._trans = np.copy(self._trans)
+        other._init_priors = np.copy(self._init_priors)
 
-    #     return other
+        return other
