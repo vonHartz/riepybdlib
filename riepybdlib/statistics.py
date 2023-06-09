@@ -1713,7 +1713,7 @@ class HMM(GMM):
             return super().condition(data_in, dim_in, dim_out, h=a)
         
     def copy(self):
-        other = HMM(self.manifold, self.n_components)
+        other = HMM(deepcopy(self.manifold), self.n_components)
 
         # Copy relevant parts from GMM
         other.gaussians = [g.copy() for g in self.gaussians]
