@@ -1624,10 +1624,6 @@ class HMM(GMM):
 
             # M-step
             if not obs_fixed:
-                # lik = self.expectation(data_rbd)
-                # h = (lik.T/lik.sum(axis=1)).T
-                # print(h.shape, gamma2.shape, gamma_trk.shape, gamma.shape)
-                # print(h.sum(axis=1), gamma2.sum(axis=1), gamma_trk.sum(axis=1))
                 for i,gauss in enumerate(self.gaussians):
                     gauss.mle(data_rbd, gamma2[i], **mle_kwargs)
 
@@ -1666,9 +1662,6 @@ class HMM(GMM):
                 logger.info("HMM EM converged")
 
                 if finish_kwargs is not None:
-                    # TODO: here too, use Gammas?
-                    # lik = self.expectation(data_rbd)
-                    # h = (lik.T/lik.sum(axis=1)).T
                     for i, gauss in enumerate(self.gaussians):
                         gauss._update_empirical_covariance(
                             data_rbd, gamma2[i], **finish_kwargs)
