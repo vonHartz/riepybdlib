@@ -60,6 +60,8 @@ class RegularizationType(Enum):
     SHRINKAGE = 1
     DIAGONAL  = 2
     COMBINED  = 3
+    DIAGONAL_ONLY = 4
+    ADD_CONSTANT = 5
 
 colors = tuple(('tab:red', 'tab:green', 'tab:blue'))
 labels = ['x', 'y', 'z']
@@ -367,21 +369,24 @@ class Gaussian(object):
         #    tmp = self.manifold.log(self.mu, val)[:,None]
         #    sigma += h[i]*tmp.dot(tmp.T)
             
-        # Perform Shrinkage regularizaton:
-        if (reg_type == RegularizationType.SHRINKAGE):
+        if reg_type is RegularizationType.SHRINKAGE:
             return reg_lambda*np.diag(np.diag(sigma)) + (1-reg_lambda)*sigma
-        elif (reg_type == RegularizationType.DIAGONAL):
+        elif reg_type is RegularizationType.DIAGONAL:
             return sigma + reg_lambda*np.eye(len(sigma))
-        elif (reg_type == RegularizationType.COMBINED):
+        elif reg_type is RegularizationType.COMBINED:
             return reg_lambda*np.diag(np.diag(sigma)) + (1-reg_lambda)*sigma + reg_lambda2*np.eye(len(sigma))
-        elif reg_type == RegularizationType.NONE or reg_type is None:
+        elif reg_type is RegularizationType.DIAGONAL_ONLY:
+            return sigma * np.eye(len(sigma))
+        elif reg_type is RegularizationType.ADD_CONSTANT:
+            return sigma + reg_lambda
+        elif reg_type is RegularizationType.NONE or reg_type is None:
             return sigma
         else:
             raise ValueError('Unknown regularization type for covariance regularization')
         
-    def _empirical_covariance(self, x, h=None, reg_lambda=1e-3, reg_lambda2=1e-3,
+    def _update_empirical_covariance(self, x, h=None, reg_lambda=1e-3, reg_lambda2=1e-3,
                                reg_type=RegularizationType.SHRINKAGE):
-        return self.__empirical_covariance(x, h, reg_lambda, reg_lambda2, reg_type)
+        self.sigma = self.__empirical_covariance(x, h, reg_lambda, reg_lambda2, reg_type)
 
     def condition(self, val, i_in=0, i_out=1):
         '''Gaussian Conditioniong
@@ -1537,10 +1542,9 @@ class HMM(GMM):
 
         self.init_priors = np.array([1.] + [0. for i in range(self.nb_states-1)])
 
-    def em(self, demos, dep=None, reg=1e-8, table=None, end_cov=False,
-           cov_type='full', dep_mask=None, reg_finish=None,
+    def em(self, demos, dep=None, table=None, dep_mask=None,
            left_to_right=False, nb_max_steps=40, loop=False, obs_fixed=False,
-           trans_reg=None, mle_kwargs=None):
+           trans_reg=None, mle_kwargs=None, finish_kwargs=None):
         """
 
         :param demos:
@@ -1552,13 +1556,9 @@ class HMM(GMM):
             covariance with dim [2]
             E.g. [slice(0, 2), [2]] indicates a full covariance matrix between [0, 1] and no
             covariance with dim [2]
-        :param reg:		[float] or list [nb_dim x float] for different regularization in different dimensions
-            Regularization term used in M-step for covariance matrices
         :param table:		np.array([nb_states, nb_demos]) - composed of 0 and 1
             A mask that avoid some demos to be assigned to some states
-        :param end_cov:	[bool]
-            If True, compute covariance matrix without regularization after convergence
-        :param cov_type: 	[string] in ['full', 'diag', 'spherical']
+
 
         trans_reg: reg for transition matrix
         left_to_right: reg for transition matrix to be sequential model
@@ -1571,13 +1571,10 @@ class HMM(GMM):
 
         :return:
         """
-        # TODO: understand use use end_cov, reg_finish, and cov_type
         # TODO: understand dep (not dep_mask)
 
         if mle_kwargs is None:
             mle_kwargs = {}
-
-        if reg_finish is not None: end_cov = True
 
         nb_min_steps = 2  # min num iterations
         max_diff_ll = 1e-4  # max log-likelihood increase
@@ -1594,8 +1591,6 @@ class HMM(GMM):
         if dep is not None:
             dep_mask = self.get_dep_mask(dep)
 
-        self.reg = reg
-
         if self.mu is None or self.sigma is None:
             raise ValueError("HMM not initialized")
 
@@ -1609,6 +1604,9 @@ class HMM(GMM):
                 mask[-1, 0] = 1.
 
         if dep_mask is not None:
+            raise NotImplementedError(
+                "Need to update sigma for the gaussians individually, see below."
+                "When implementing this, also update all other occurances below.")
             self.sigma *= dep_mask
 
         for it in tqdm(range(nb_max_steps), desc='HMM EM'):
@@ -1624,24 +1622,14 @@ class HMM(GMM):
 
             gamma2 = gamma / (np.sum(gamma, axis=1, keepdims=True) + realmin)
 
-            # h = gamma2[i,]
-
-            # Get expectation of data
-            # print(data.shape, gamma.shape)  # (15, 1800) (4, 1800)
-            # raise KeyboardInterrupt
-
             # M-step
             if not obs_fixed:
-                expectation = self.expectation(data_rbd)
-                h = (expectation.T/expectation.sum(axis=1)).T
+                # lik = self.expectation(data_rbd)
+                # h = (lik.T/lik.sum(axis=1)).T
+                # print(h.shape, gamma2.shape, gamma_trk.shape, gamma.shape)
+                # print(h.sum(axis=1), gamma2.sum(axis=1), gamma_trk.sum(axis=1))
                 for i,gauss in enumerate(self.gaussians):
-                    gauss.mle(data_rbd, h[i], **mle_kwargs)
-
-                    # Regularization
-                    gauss.sigma += self.reg
-
-                    if cov_type == 'diag':
-                        gauss.sigma *= np.eye(gauss.sigma.shape[0])
+                    gauss.mle(data_rbd, gamma2[i], **mle_kwargs)
 
                 if dep_mask is not None:
                     self.sigma *= dep_mask
@@ -1676,26 +1664,14 @@ class HMM(GMM):
             # Check for convergence
             if it > nb_min_steps and LL[it] - LL[it - 1] < max_diff_ll:
                 logger.info("HMM EM converged")
-                if end_cov:
-                    # for i in range(self.nb_states):
-                    expectation = self.expectation(data_rbd)
-                    h = (expectation.T/expectation.sum(axis=1)).T
+
+                if finish_kwargs is not None:
+                    # TODO: here too, use Gammas?
+                    # lik = self.expectation(data_rbd)
+                    # h = (lik.T/lik.sum(axis=1)).T
                     for i, gauss in enumerate(self.gaussians):
-                        # recompute covariances without regularization
-                        # TODO: replace with Riemannian data and algo
-                        # Data_tmp = data - self.mu[i][:, None]
-                        # self.sigma[i] = np.einsum(
-                        #     'ij,jk->ik', np.einsum('ij,j->ij', Data_tmp,
-                        #                            gamma2[i, :]), Data_tmp.T)
-                        self.sigma[i] = gauss._empirical_covariance(
-                            data_rbd, h[i], None, None, RegularizationType.NONE)
-                        if reg_finish is not None:
-                            self.reg = reg_finish
-                            self.sigma += self.reg[None]
-
-
-                    if cov_type == 'diag':
-                        self.sigma[i] *= np.eye(self.sigma.shape[1])
+                        gauss._update_empirical_covariance(
+                            data_rbd, gamma2[i], **finish_kwargs)
 
                 if dep_mask is not None:
                     self.sigma *= dep_mask
