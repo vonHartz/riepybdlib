@@ -1535,7 +1535,7 @@ class HMM(GMM):
     def em(self, demos, dep=None, reg=1e-8, table=None, end_cov=False,
            cov_type='full', dep_mask=None, reg_finish=None,
            left_to_right=False, nb_max_steps=40, loop=False, obs_fixed=False,
-           trans_reg=None):
+           trans_reg=None, mle_kwargs=None):
         """
 
         :param demos:
@@ -1569,6 +1569,8 @@ class HMM(GMM):
         # TODO: understand use use end_cov, reg_finish, and cov_type
         # TODO: understand dep (not dep_mask)
 
+        if mle_kwargs is None:
+            mle_kwargs = {}
 
         if reg_finish is not None: end_cov = True
 
@@ -1628,15 +1630,13 @@ class HMM(GMM):
                 expectation = self.expectation(data_rbd)
                 h = (expectation.T/expectation.sum(axis=1)).T
                 for i,gauss in enumerate(self.gaussians):
-                    gauss.mle(data_rbd, h[i], 1e-3, 1e-5, RegularizationType.COMBINED)
+                    gauss.mle(data_rbd, h[i], **mle_kwargs)
 
                     # Regularization
                     gauss.sigma += self.reg
 
                     if cov_type == 'diag':
                         gauss.sigma *= np.eye(gauss.sigma.shape[0])
-
-                    # TODO: update priors?
 
                 if dep_mask is not None:
                     self.sigma *= dep_mask
@@ -1730,7 +1730,7 @@ class HMM(GMM):
 
         # Copy relevant parts from GMM
         other.gaussians = [g.copy() for g in self.gaussians]
-        other.priors = np.copy(self.priors)
+        other.priors = np.copy(self.priors)  # not needed for HMM
         other.base = deepcopy(self.base)
 
         # Copy HMM-specific parts
