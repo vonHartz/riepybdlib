@@ -374,10 +374,14 @@ class Gaussian(object):
             return sigma + reg_lambda*np.eye(len(sigma))
         elif (reg_type == RegularizationType.COMBINED):
             return reg_lambda*np.diag(np.diag(sigma)) + (1-reg_lambda)*sigma + reg_lambda2*np.eye(len(sigma))
-        elif reg_type==None:
+        elif reg_type == RegularizationType.NONE or reg_type is None:
             return sigma
         else:
             raise ValueError('Unknown regularization type for covariance regularization')
+        
+    def _empirical_covariance(self, x, h=None, reg_lambda=1e-3, reg_lambda2=1e-3,
+                               reg_type=RegularizationType.SHRINKAGE):
+        return self.__empirical_covariance(x, h, reg_lambda, reg_lambda2, reg_type)
 
     def condition(self, val, i_in=0, i_out=1):
         '''Gaussian Conditioniong
@@ -720,6 +724,7 @@ class GMM:
             lik = self.expectation(data)
             gamma0 = (lik/ (lik.sum(axis=0) + 1e-200) )# Sum over states is one
             gamma1 = (gamma0.T/gamma0.sum(axis=1)).T # Sum over data is one
+
             # Maximization:
             # - Update Gaussian:
             for i,gauss in enumerate(self.gaussians):
@@ -1672,13 +1677,18 @@ class HMM(GMM):
             if it > nb_min_steps and LL[it] - LL[it - 1] < max_diff_ll:
                 logger.info("HMM EM converged")
                 if end_cov:
-                    for i in range(self.nb_states):
+                    # for i in range(self.nb_states):
+                    expectation = self.expectation(data_rbd)
+                    h = (expectation.T/expectation.sum(axis=1)).T
+                    for i, gauss in enumerate(self.gaussians):
                         # recompute covariances without regularization
                         # TODO: replace with Riemannian data and algo
-                        Data_tmp = data - self.mu[i][:, None]
-                        self.sigma[i] = np.einsum(
-                            'ij,jk->ik', np.einsum('ij,j->ij', Data_tmp,
-                                                   gamma2[i, :]), Data_tmp.T)
+                        # Data_tmp = data - self.mu[i][:, None]
+                        # self.sigma[i] = np.einsum(
+                        #     'ij,jk->ik', np.einsum('ij,j->ij', Data_tmp,
+                        #                            gamma2[i, :]), Data_tmp.T)
+                        self.sigma[i] = gauss._empirical_covariance(
+                            data_rbd, h[i], None, None, RegularizationType.NONE)
                         if reg_finish is not None:
                             self.reg = reg_finish
                             self.sigma += self.reg[None]
