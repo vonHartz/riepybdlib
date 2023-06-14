@@ -780,9 +780,13 @@ class GMM:
             self.priors[i] = len(idtmp)
         self.priors = self.priors / self.priors.sum()
 
-    def init_time_based_from_np(self, npdata, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE, plot=False):
+    def init_time_based_from_np(self, npdata, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE, plot=False,
+                                drop_time=False):
         # Assuming that data is first manifold dimension
         t = npdata[:,0]
+
+        if drop_time:
+            npdata = npdata[:,1:]
 
         # Timing seperation:
         timing_sep = np.linspace(t.min(), t.max(),self.n_components+1)
