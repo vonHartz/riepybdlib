@@ -988,7 +988,7 @@ class GMM:
        
     def margin(self, i_in):
         # Construct new GMM:
-        newgmm = GMM(self.manifold.get_submanifold(i_in), self.n_components)
+        newgmm = type(self)(self.manifold.get_submanifold(i_in), self.n_components)
 
         # Copy priors
         newgmm.priors = self.priors
@@ -1015,7 +1015,7 @@ class GMM:
             
         return prodgmm
 
-    def gmr_from_np(self, npdata_in, i_in=0, i_out=1):
+    def gmr_from_np(self, npdata_in, i_in=0, i_out=1, initial_obs=None):
         data = self.manifold.np_to_manifold(npdata_in, dim=i_in)
         return self.gmr(data, i_in, i_out)
 
@@ -1383,23 +1383,99 @@ class HMM(GMM):
 
         return np.exp(B), B
 
+    def gmr_from_np(self, demo, i_in=0, i_out=1, initial_obs=False):
+        '''Perform Gaussian Mixture Regression
+        demo : single observation or sequence of observations
+        i_in : Index of input manifold
+        i_out: Index of output manifold
+        '''
+
+        m_out  = self.gaussians[0].manifold.get_submanifold(i_out)
+        m_in   = self.gaussians[0].manifold.get_submanifold(i_in)
+
+        data_in = self.manifold.np_to_manifold(demo, dim=i_in)
+
+        # Check swap input data to list:
+        ldata_in = m_in.swapto_listoftuple(data_in)
+        n_data = len(ldata_in)
+            
+        # Compute weights:
+        if n_data == 1:
+            h = self.online_forward_message(data_in, marginal=i_in,
+                                            reset=initial_obs)
+            h = np.expand_dims(h, 0)
+        else:
+            raise NotImplementedError("Need to implement forward messages for "
+                                      "sequences of data.")
+
+        gmr_list = []
+        for n, point in enumerate(ldata_in):
+            # Compute conditioned elements:
+            gc_list = []
+            muc_list = []
+            for i, gauss in enumerate(self.gaussians):
+                # Only compute conditioning for states that have a significant influence
+                # Do this to prevent convergence errors
+                if h[n,i]>1e-5:
+                    # weight is larger than 1e-3
+                    gc_list.append(gauss.condition(point, i_in=i_in, i_out=i_out))
+                else:
+                    # No signnificant weight, just store the margin 
+                    gc_list.append(gauss.margin(i_out))
+                # Store the means in np array:
+                muc_list.append(gc_list[-1].mu)
+
+            # Convert to tuple of  lists, such that we can apply log and exp to them
+            muc_list = m_out.swapto_tupleoflist(muc_list) 
+
+            # compute Mu of GMR:
+            mu_gmr = deepcopy(gc_list[0].mu)
+            diff = 1.0; it = 0
+            
+            diff == 1
+
+            while (diff > 1e-5):
+                delta = h[n,:].dot( m_out.log(muc_list, mu_gmr) )
+                mu_gmr = m_out.exp(delta, mu_gmr)
+                
+                # Compute update difference
+                diff = (delta*delta).sum()
+                
+                if it>50:
+                    logger.warning('GMR did not converge in {0} iterations.'.format(n))
+                    break;
+                it+=1
+                    
+             # Compute covariance: 
+            sigma_gmr = np.zeros( (m_out.n_dimT, m_out.n_dimT))
+            for i in range(self.n_components):
+                R = m_out.parallel_transport(np.eye(m_out.n_dimT), 
+                                            gc_list[i].mu, mu_gmr).T
+
+                dtmp = np.zeros(m_out.n_dimT)[:,None] #m_out.log(gc_list[i].mu, mu_gmr)[:,None] #
+                sigma_gmr += h[n,i]*( R.dot(gc_list[i].sigma.dot(R.T))
+                                     + dtmp.dot(dtmp.T) 
+                                    )           
+
+            gmr_list.append( Gaussian(m_out, mu_gmr, sigma_gmr))
+            
+        return gmr_list
+
     def online_forward_message(self, x, marginal=None, reset=False):
         """
-
+        Takes a single observation and computes the forward message.
         :param x:
         :param marginal: slice
         :param reset:
         :return:
         """
         if (not hasattr(self, '_marginal_tmp') or reset) and marginal is not None:
-            raise NotImplementedError
-            # NOTE: need to at leat replace marginal_model with margin
-            self._marginal_tmp = self.marginal_model(marginal)
+            self._marginal_tmp = self.margin(marginal)
 
         if marginal is not None:
-            B, _ = self._marginal_tmp.obs_likelihood(x[None])
+            B, _ = self._marginal_tmp.obs_likelihood(x)
         else:
-            B, _ = self.obs_likelihood(x[None])
+            B, _ = self.obs_likelihood(x)
 
         if not hasattr(self, '_alpha_tmp') or reset:
             self._alpha_tmp = self.init_priors * B[:, 0]
@@ -1688,22 +1764,35 @@ class HMM(GMM):
 
         return ll
 
-    def condition(self, data_in, dim_in, dim_out, h=None, return_gmm=False):
-        raise NotImplementedError("Thought this was not used.")
-        # NOTE: need to ensure signature is the same as for GMM (or modify super().condition())
-        # understand what is h - can remove as its unused?
-        # understand why for slice(0,1) the dim_in_msg are empty. Is this time?
-        if return_gmm:
-            return super().condition(data_in, dim_in, dim_out, return_gmm=return_gmm)
-        else:
-            if dim_in == slice(0, 1):
-                dim_in_msg = []
-            else:
-                dim_in_msg = dim_in
-            a, _, _, _, _ = self.compute_messages(data_in, marginal=dim_in_msg)
+    def condition(self, data_in, dim_in, dim_out):
 
-            return super().condition(data_in, dim_in, dim_out, h=a)
-        
+        print(type(data_in))
+        print(len(data_in))
+        print(type(dim_in[0]))
+        print(len(dim_in[0]))
+
+        return super.condition(self, data_in, dim_in, dim_out)
+
+        # understand why for slice(0,1) the dim_in_msg are empty. Is this time?
+        # if return_gmm:
+        #     return super().condition(data_in, dim_in, dim_out, return_gmm=return_gmm)
+        # else:
+        #     if dim_in == slice(0, 1):
+        #         dim_in_msg = []
+        #     else:
+        #         dim_in_msg = dim_in
+        #     a, _, _, _, _ = self.compute_messages(data_in, marginal=dim_in_msg)
+
+        #     return super().condition(data_in, dim_in, dim_out, h=a)
+    
+    def margin(self, i_in):
+        marg = GMM.margin(self, i_in)
+
+        marg._trans = np.copy(self._trans)
+        marg._init_priors = np.copy(self._init_priors)
+
+        return marg
+
     def copy(self):
         other = HMM(deepcopy(self.manifold), self.n_components)
 
