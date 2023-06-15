@@ -1405,7 +1405,7 @@ class HMM(GMM):
             
         # Compute weights:
         if n_data == 1:
-            h = self.online_forward_message(data_in, marginal=i_in,
+            h = self.online_forward_message(demo, marginal=i_in,
                                             reset=initial_obs)
             h = np.expand_dims(h, 0)
         else:
