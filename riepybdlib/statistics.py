@@ -1160,7 +1160,8 @@ class GMM:
 
     def np_to_manifold_to_np(self, npdata_in, i_in=None, base=None):
         data = self.manifold.np_to_manifold(npdata_in, dim=i_in)
-        # base = self.mu??
+        if base is None:
+            base = self.base
         return self.manifold.log(data, base, dim=i_in)
 
     def save(self,name):
