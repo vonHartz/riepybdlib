@@ -572,12 +572,12 @@ class Gaussian(object):
         return fctplt.GaussianPatch3d(ax=ax, mu=mu, sigma=sigma, **kwargs)
 
     def get_mu_sigma(self, base=None, idx=None, mu_on_tangent=True,
-                     as_np=False):
+                     as_np=False, raw_tuple=False):
         if base is None:
             base = self.manifold.id_elem
 
         if mu_on_tangent:
-            mu = self.manifold.log(self.mu, base)
+            mu = self.manifold.log(self.mu, base, stack=not raw_tuple)
         elif as_np:
             mu = list(self.mu)
             for i, m in enumerate(mu):
@@ -1129,9 +1129,9 @@ class GMM:
         return l_list
 
     def get_mu_sigma(self, base=None, idx=None, stack=False, mu_on_tangent=True,
-                     as_np=False):
+                     as_np=False, raw_tuple=False):
         comp = [g.get_mu_sigma(base=base, idx=idx, mu_on_tangent=mu_on_tangent,
-                               as_np=as_np)
+                               as_np=as_np, raw_tuple=raw_tuple)
                 for g in self.gaussians]
 
         mu = [c[0] for c in comp]
@@ -1151,6 +1151,12 @@ class GMM:
     @property
     def mu(self):  # for compatibility with pbdlib
         mu, _ = self.get_mu_sigma(stack=True, as_np=True)
+        return mu
+
+    @property
+    def mu_raw(self):
+        mu, _ = self.get_mu_sigma(stack=False, as_np=False, raw_tuple=True,
+                                  mu_on_tangent=False)
         return mu
 
     @property

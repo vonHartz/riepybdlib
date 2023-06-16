@@ -226,7 +226,7 @@ class Manifold(object):
         else:
             return  tuple(tmp)
             
-    def log(self,g, base=None, reg=1e-6, dim=None):
+    def log(self,g, base=None, reg=1e-6, dim=None, stack=True):
         '''Manifold Logarithmic map
 
         Arguments
@@ -256,7 +256,10 @@ class Manifold(object):
             man = self.__manlist[m]
             g_tan.append( man.__flog(g[d], base[d], reg=reg) )
 
-        return  np.hstack( g_tan )
+        if stack:
+            return  np.hstack(g_tan)
+        else:
+            return  tuple(g_tan)
 
     def action(self, X ,g, h):
         ''' Create manifold elements Y that have a relation with h and elements X have with g'''
