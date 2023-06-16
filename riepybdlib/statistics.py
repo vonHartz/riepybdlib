@@ -1160,6 +1160,12 @@ class GMM:
         return mu
 
     @property
+    def mu_tangent(self):
+        mu, _ = self.get_mu_sigma(stack=False, as_np=False, raw_tuple=True,
+                                  mu_on_tangent=True)
+        return mu
+
+    @property
     def sigma(self):
         _, sigma = self.get_mu_sigma(stack=True, as_np=True)
         return sigma
