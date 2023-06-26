@@ -1203,3 +1203,50 @@ class GaussianLegendHandler(object):
         handlebox.add_artist(patch)
         return patch
 Legend.update_default_handler_map({AbstractGaussianGraphic: GaussianLegendHandler()})
+
+
+def filter_zeropoints(array, thresh=1):
+    # TODO: also use length of stretch? Ie if less than n elements, only keep
+    # one value (middle?) instead of left and right
+    filtered = [array[0]]
+    if array[1] - array[0] > thresh:
+        filtered.append(array[1])
+    for i in range(2, len(array)):
+        if array[i-1] - array[i-2] > thresh or array[i] - array[i-1] > thresh:
+            filtered.append(array[i])
+
+    return np.array(filtered)
+
+
+def plot_component_time_series(log_data, fig_size=(12, 10), show_zeros=False,
+                               apply_filter=True):
+    if show_zeros:
+        zero_points = [[np.argwhere(np.abs(traj) < 0.0001) for traj in d]
+                       for d in log_data]
+
+        if apply_filter:
+            # filter out consecutive values (with diff < threshold) and only keep
+            # left and right value
+            zero_points = [[filter_zeropoints(traj) for traj in d] for d in zero_points]
+
+        # use where to get Bool mask, then sum over trajs and take local max/thresh
+        # of that.
+    else:
+        zero_points = None
+
+    fig, ax = plt.subplots(4, 2)
+    fig.set_size_inches(*fig_size)
+    dim_colors = ['r', 'g', 'b']
+    for f in range(2):
+        for m in range(4):
+            for d in range(3):
+                idx = 12*f + 3*m + d
+                for tr in range(20):
+                    ax[m, f].plot(log_data[idx, tr], dim_colors[d], alpha=0.2)
+
+                    zp = [] if zero_points is None else zero_points[idx][tr]
+                    for x in zp:
+                        ax[m, f].axvline(x=x, linestyle=':', color=dim_colors[d],
+                                        alpha=0.5)
+
+    plt.show()

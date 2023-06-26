@@ -829,22 +829,21 @@ class GMM:
 
         log_data = np.stack(
             [self.np_to_manifold_to_np(traj) for traj in npdata])
-        grad = np.gradient(log_data, 1/n_time_steps, axis=1).transpose(2, 0, 1)
+        # grad = np.gradient(log_data, 1/n_time_steps, axis=1).transpose(2, 0, 1)
+        # sec_grad = np.gradient(grad, 1/n_time_steps, axis=2)
+        grad = np.gradient(log_data,axis=1).transpose(2, 0, 1)
+        sec_grad = np.gradient(grad, axis=2)
 
         if includes_time:
+            orig = log_data.transpose(2, 0, 1)[1:]
             grad = grad[1:]
+            sec_grad = sec_grad[1:]
 
-        import matplotlib.pyplot as plt
-        fig, ax = plt.subplots(4, 2)
-        dim_colors = ['r', 'g', 'b']
-        for f in range(2):
-            for m in range(4):
-                for d in range(3):
-                    idx = 12*f + 3*m + d
-                    print(m, f, d, idx)
-                    for traj in range(20):
-                        ax[m, f].plot(grad[idx, traj], dim_colors[d], alpha=0.2)
-        plt.show()
+        # fctplt.plot_component_time_series(orig)
+        # fctplt.plot_component_time_series(grad)
+        fctplt.plot_component_time_series(sec_grad, (24, 20), show_zeros=True,
+                                          apply_filter=False)
+        fctplt.plot_component_time_series(sec_grad, (24, 20), show_zeros=True)
 
         # Frame seems unimportant for derivatives, so just take the first one
         # Then take only zero positins of 2nd derivative?
@@ -854,11 +853,11 @@ class GMM:
         zero_points = [[np.argwhere(np.abs(d) < threshold) for d in traj]
                        for traj in grad]
 
-        for i, d in enumerate(zero_points):
-            print(f"=={i}======")
-            for j, tr in enumerate(d):
-                print(f"traj {j}:")
-                print(tr)
+        # for i, d in enumerate(zero_points):
+        #     print(f"=={i}======")
+        #     for j, tr in enumerate(d):
+        #         print(f"traj {j}:")
+        #         print(tr)
         raise KeyboardInterrupt
 
 
