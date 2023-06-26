@@ -841,8 +841,8 @@ class GMM:
 
         # fctplt.plot_component_time_series(orig)
         # fctplt.plot_component_time_series(grad)
-        fctplt.plot_component_time_series(sec_grad, (24, 20), show_zeros=True,
-                                          apply_filter=False)
+        # fctplt.plot_component_time_series(sec_grad, (24, 20), show_zeros=True,
+        #                                   apply_filter=False)
         fctplt.plot_component_time_series(sec_grad, (24, 20), show_zeros=True)
 
         # Frame seems unimportant for derivatives, so just take the first one

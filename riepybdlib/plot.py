@@ -1213,24 +1213,51 @@ def filter_zeropoints(array, thresh=1):
         filtered.append(array[1])
     for i in range(2, len(array)):
         if array[i-1] - array[i-2] > thresh or array[i] - array[i-1] > thresh:
-            filtered.append(array[i])
+            filtered.append(array[i - 1])
 
     return np.array(filtered)
 
 
+def filter_zeromask(array):
+    filtered = np.copy(array)
+    D, TR, TI = array.shape
+    for d in range(D):
+        for tr in range(TR):
+            for t in range(TI):
+                if array[d, tr, t-2] and array[d, tr, t]:
+                    filtered[d, tr, t-1] = False
+
+    return filtered
+
+
+
 def plot_component_time_series(log_data, fig_size=(12, 10), show_zeros=False,
                                apply_filter=True):
+    from scipy.signal import argrelextrema
     if show_zeros:
-        zero_points = [[np.argwhere(np.abs(traj) < 0.0001) for traj in d]
-                       for d in log_data]
+        # zero_points = [[np.argwhere(np.abs(traj) < 0.0001) for traj in d]
+        #                for d in log_data]
 
+        # if apply_filter:
+        #     # filter out consecutive values (with diff < threshold) and only keep
+        #     # left and right value
+        #     zero_points = [[filter_zeropoints(traj) for traj in d] for d in zero_points]
+
+        zp_data = np.concatenate((log_data[:3, ...], log_data[6:9, ...]), axis=-1)
+
+        zero_mask = np.abs(zp_data) < 0.0001
+        filtered = filter_zeromask(zero_mask)
+        mask_sums = np.sum(filtered, axis=1).sum(axis=0)
         if apply_filter:
-            # filter out consecutive values (with diff < threshold) and only keep
-            # left and right value
-            zero_points = [[filter_zeropoints(traj) for traj in d] for d in zero_points]
-
-        # use where to get Bool mask, then sum over trajs and take local max/thresh
-        # of that.
+            # thresh over n trajs
+            # zero_points = [[*np.argwhere(d > 5)] * 20 for d in mask_sums]
+            # local maxima + thresh
+            sum_thresh = np.where(mask_sums > 12, mask_sums, 0)
+            # zero_points = [argrelextrema(d, np.greater_equal)[0]
+            #                for d in sum_thresh]
+            zero_points = argrelextrema(sum_thresh, np.greater_equal)[0]
+        else:
+            zero_points = [np.argwhere(d) for d in zero_mask]
     else:
         zero_points = None
 
@@ -1244,9 +1271,14 @@ def plot_component_time_series(log_data, fig_size=(12, 10), show_zeros=False,
                 for tr in range(20):
                     ax[m, f].plot(log_data[idx, tr], dim_colors[d], alpha=0.2)
 
-                    zp = [] if zero_points is None else zero_points[idx][tr]
-                    for x in zp:
-                        ax[m, f].axvline(x=x, linestyle=':', color=dim_colors[d],
-                                        alpha=0.5)
+                # zp = [] if zero_points is None else zero_points[idx]  # [tr]
+                # for x in zp:
+                #     ax[m, f].axvline(x=x, linestyle=':', color=dim_colors[d],
+                #                     alpha=0.5)
+
+            zp = [] if zero_points is None else zero_points
+            for x in zp:
+                ax[m, f].axvline(x=x, linestyle=':', color='k',
+                                alpha=0.5)
 
     plt.show()
