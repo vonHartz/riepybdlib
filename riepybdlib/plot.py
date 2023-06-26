@@ -1243,7 +1243,7 @@ def plot_component_time_series(log_data, fig_size=(12, 10), show_zeros=False,
         #     # left and right value
         #     zero_points = [[filter_zeropoints(traj) for traj in d] for d in zero_points]
 
-        zp_data = np.concatenate((log_data[:3, ...], log_data[6:9, ...]), axis=-1)
+        zp_data = np.concatenate((log_data[:3, ...], log_data[6:9, ...]), axis=0)
 
         zero_mask = np.abs(zp_data) < 0.0001
         filtered = filter_zeromask(zero_mask)
@@ -1252,6 +1252,7 @@ def plot_component_time_series(log_data, fig_size=(12, 10), show_zeros=False,
             # thresh over n trajs
             # zero_points = [[*np.argwhere(d > 5)] * 20 for d in mask_sums]
             # local maxima + thresh
+            # TODO: thresh after local max?
             sum_thresh = np.where(mask_sums > 12, mask_sums, 0)
             # zero_points = [argrelextrema(d, np.greater_equal)[0]
             #                for d in sum_thresh]
