@@ -1218,89 +1218,35 @@ def filter_zeropoints(array, thresh=1):
     return np.array(filtered)
 
 
-def filter_zeromask(array):
-    filtered = np.copy(array)
-    D, TR, TI = array.shape
-    for d in range(D):
-        for tr in range(TR):
-            for t in range(TI):
-                if array[d, tr, t-2] and array[d, tr, t]:
-                    filtered[d, tr, t-1] = False
+def plot_component_time_series(log_data, fig_size=(12, 10),
+                               global_zero_points=None, local_zero_points=None):
+    
+    n_frames = 2
+    n_mani_per_frame = 4
+    dims = 3 * n_mani_per_frame * n_frames
 
-    return filtered
-
-
-
-def plot_component_time_series(log_data, fig_size=(12, 10), show_zeros=False,
-                               apply_filter=True):
-    from sklearn.cluster import DBSCAN
-    if show_zeros:
-        n_samples = log_data.shape[2]
-        # dims = tuple((0, 1, 2, 6, 7, 8))
-        dims = tuple(range(24))
-
-        zp_data = np.stack([log_data[d] for d in dims], axis=0)
-        # zp_data = log_data[:3, ...]
-
-        zero_mask = np.abs(zp_data) < 0.001
-        filtered = filter_zeromask(zero_mask)
-        dbs = DBSCAN(eps=2, min_samples=2)
-        dim_zeroes = [np.concatenate([np.argwhere(tr) for tr in d])
-                      for d in filtered]
-        dim_cluster_labels = [dbs.fit_predict(d) for d in dim_zeroes]
-
-        # Compute the mean of all clusters
-        dim_cluster_means = []
-        for dim in range(len(dim_zeroes)):
-            unique_labels = np.unique(dim_cluster_labels[dim])
-            cluster_means = []
-            for label in unique_labels:
-                if label == -1:
-                    continue
-                cluster_mean = np.mean(dim_zeroes[dim][dim_cluster_labels[dim] == label], axis=0)
-                cluster_means.append(cluster_mean)
-            dim_cluster_means.append(cluster_means)
-
-        zero_points = dim_cluster_means
-
-        dbs = DBSCAN(eps=3, min_samples=3)
-        global_zero_labels = dbs.fit_predict(np.concatenate(zero_points))
-        global_zero_means = []
-        for label in np.unique(global_zero_labels):
-            if label == -1:
-                continue
-            global_zero_means.append(np.mean(np.concatenate(zero_points)[global_zero_labels == label], axis=0))
-
-        global_zero_means = sorted(global_zero_means)
-        while global_zero_means[0] < 9:
-            global_zero_means = global_zero_means[1:]
-        while global_zero_means[-1] > n_samples - 9:
-            global_zero_means = global_zero_means[:-1]
-    else:
-        zero_points = None
-
-    fig, ax = plt.subplots(4, 2)
+    fig, ax = plt.subplots(n_mani_per_frame, n_frames)
     fig.set_size_inches(*fig_size)
     dim_colors = ['r', 'g', 'b']
-    for f in range(2):
-        for m in range(4):
+    for f in range(n_frames):
+        for m in range(n_mani_per_frame):
             for d in range(3):
                 idx = 12*f + 3*m + d
                 for tr in range(20):
                     ax[m, f].plot(log_data[idx, tr], dim_colors[d], alpha=0.2)
 
-    for i, md in enumerate(dims):
+    for md in range(dims):
         d = md % 3
-        f = md // 12
-        m = md // 3 - 4*f
-        zp = [] if zero_points is None else zero_points[i]
+        f = md // (3*n_mani_per_frame)
+        m = md // 3 - n_mani_per_frame*f
+        zp = [] if local_zero_points is None else local_zero_points[md]
         for x in zp:
             ax[m, f].axvline(x=x, linestyle=':', color=dim_colors[d],
                                 alpha=0.6)
 
-    for f in range(2):
-        for m in range(4):
-            for x in global_zero_means:
+    for f in range(n_frames):
+        for m in range(n_mani_per_frame):
+            for x in global_zero_points:
                 ax[m, f].axvline(x=x, linestyle='dashed', color='k', alpha=1)
 
     plt.show()

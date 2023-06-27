@@ -644,21 +644,27 @@ class GMM:
     '''
     def __init__(self, manifold, n_components, base=None):
         '''Create GMM'''
-        mu0 = manifold.id_elem
-        sigma0 = np.eye(manifold.n_dimT)
-        
-        self.gaussians = []
-        for i in range(n_components):
-            self.gaussians.append( Gaussian(manifold,mu0,sigma0))
-            
-        self.n_components = n_components
-        self.priors = np.ones(n_components)/n_components
         self.manifold = manifold
+
+        self.set_n_components(n_components, warn=False)
 
         if base is None:
             self.base = manifold.id_elem
         else:
             self.base = base
+
+    def set_n_components(self, n_components, warn=True):
+        logger.warning("Changing number of components resets the GMM.")
+
+        mu0 = self.manifold.id_elem
+        sigma0 = np.eye(self.manifold.n_dimT)
+
+        self.n_components = n_components
+        self.priors = np.ones(n_components)/n_components
+
+        self.gaussians = []
+        for _ in range(n_components):
+            self.gaussians.append( Gaussian(self.manifold, mu0, sigma0) )
 
     def expectation(self,data):
         # Expectation:
@@ -823,48 +829,121 @@ class GMM:
 
         return timing_sep
 
-    def sammi_init(self, npdata, includes_time=False, threshold=0.05):
+    def sammi_init(self, npdata, includes_time=False, debug=False,
+                   reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE,
+                   plot=False):
 
         from scipy.ndimage import gaussian_filter1d
+        from sklearn.cluster import DBSCAN
+
+        def filter_zeromask(array):
+            # Filter out consecutive zeros. Only keep leftmost and rightmost.
+            filtered = np.copy(array)
+            D, TR, TI = array.shape
+            for d in range(D):
+                for tr in range(TR):
+                    for t in range(TI):
+                        if array[d, tr, t-2] and array[d, tr, t]:
+                            filtered[d, tr, t-1] = False
+
+            return filtered
+        
+        def get_cluster_means(data, labels):
+            means = []
+
+            for l in np.unique(labels):
+                if l == -1:
+                    continue
+                means.append(np.mean(np.concatenate(data)[labels==l], axis=0))
+
+            return means
+
+        def get_components(log_data, local_eps=2, local_min_samples=2,
+                           global_eps=3, global_min_samples=3,
+                           edge_margin=9, zero_thresh=0.001):
+            # zp_data = np.stack([log_data[d] for d in dims], axis=0)
+            zero_mask = np.abs(log_data) < zero_thresh
+            filtered = filter_zeromask(zero_mask)
+
+            # Cluster zero points per dimension
+            dbs = DBSCAN(eps=local_eps, min_samples=local_min_samples)
+            dim_zeroes = [np.concatenate([np.argwhere(tr) for tr in d])
+                        for d in filtered]
+            dim_cluster_labels = [dbs.fit_predict(d) for d in dim_zeroes]
+
+            # Compute the mean of all clusters
+            dim_cluster_means = []
+            for dim in range(len(dim_zeroes)):
+                dim_cluster_means.append(
+                    get_cluster_means(dim_zeroes[dim], dim_cluster_labels[dim]))
+
+            # Cluster the means of all dimensions
+            dbs = DBSCAN(eps=global_eps, min_samples=global_min_samples)
+
+            global_zero_labels = dbs.fit_predict(
+                np.concatenate(dim_cluster_means).reshape(-1, 1))
+            global_zero_means = get_cluster_means(
+                dim_cluster_means, global_zero_labels)
+
+            global_zero_means = sorted(global_zero_means)
+
+            # Filter out borders that are too close to the edges
+            while global_zero_means[0] < edge_margin:
+                global_zero_means = global_zero_means[1:]
+            while global_zero_means[-1] > n_time_steps - edge_margin:
+                global_zero_means = global_zero_means[:-1]
+
+            return global_zero_means, dim_cluster_means
 
         n_time_steps = npdata.shape[1]
 
+        logger.info('Estimating component borders ...')
         log_data = np.stack(
             [self.np_to_manifold_to_np(traj) for traj in npdata])
-        # grad = np.gradient(log_data, 1/n_time_steps, axis=1).transpose(2, 0, 1)
-        # sec_grad = np.gradient(grad, 1/n_time_steps, axis=2)
+
         grad = np.gradient(log_data, axis=1).transpose(2, 0, 1)
         grad = gaussian_filter1d(grad, 2)
-        # sec_grad = np.gradient(grad, axis=2)
-        # sec_grad = gaussian_filter1d(sec_grad, 2)
 
         if includes_time:
-            orig = log_data.transpose(2, 0, 1)[1:]
+            # orig = log_data.transpose(2, 0, 1)[1:]
             grad = grad[1:]
-            # sec_grad = sec_grad[1:]
 
-        # fctplt.plot_component_time_series(orig)
-        fctplt.plot_component_time_series(grad, (24, 20), show_zeros=True)
-        # fctplt.plot_component_time_series(sec_grad, (24, 20), show_zeros=True,
-        #                                   apply_filter=False)
-        # fctplt.plot_component_time_series(sec_grad, (24, 20), show_zeros=True)
+        borders, dim_borders = get_components(grad)
 
-        # Frame seems unimportant for derivatives, so just take the first one
-        # Then take only zero positins of 2nd derivative?
-        # How to filter stretches of zero points?
+        if debug:
+            fctplt.plot_component_time_series(grad, (24, 20), borders,
+                                              dim_borders)
 
-        # find zero points for all dimensions
-        # zero_points = [[np.argwhere(np.abs(d) < threshold) for d in traj]
-        #                for traj in grad]
+        borders = [0] + borders
 
-        # for i, d in enumerate(zero_points):
-        #     print(f"=={i}======")
-        #     for j, tr in enumerate(d):
-        #         print(f"traj {j}:")
-        #         print(tr)
-        raise KeyboardInterrupt
+        self.set_n_components(len(borders))
 
+        borders.append(n_time_steps - 1)
 
+        t = np.arange(n_time_steps)
+
+        # Fit gaussians to the components
+        # TODO: find multimodalities in components and fit multiple gaussians
+        # if needed
+        for i, g in tqdm(enumerate(self.gaussians), desc='Fitting components',
+                         total=self.n_components):
+            if plot:
+                logger.info('Fitting GMM component %i/%i'%(i+1, self.n_components),
+                            filter=False)
+            # Select elements:
+            idtmp = (t>=borders[i])*(t<borders[i+1])
+            sl =  np.ix_(range(npdata.shape[0]), idtmp, range(npdata.shape[2]))
+
+            tmpdata = self.manifold.np_to_manifold(
+                npdata[sl].reshape(-1, npdata.shape[2]))
+            
+            # Perform mle:
+            g.mle(tmpdata, reg_lambda=reg_lambda, reg_type=reg_type,
+                  plot_process=plot)
+            self.priors[i] = len(idtmp)
+        self.priors = self.priors / self.priors.sum()
+
+        return borders
 
     # @logger.contextualize(filter=False)
     def kmeans(self,data, maxsteps=100,reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE ):
