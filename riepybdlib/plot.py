@@ -1233,39 +1233,49 @@ def filter_zeromask(array):
 
 def plot_component_time_series(log_data, fig_size=(12, 10), show_zeros=False,
                                apply_filter=True):
-    from scipy.signal import argrelextrema
     from sklearn.cluster import DBSCAN
     if show_zeros:
-
-        dims = tuple((0, 1, 2, 6, 7, 8))
+        n_samples = log_data.shape[2]
+        # dims = tuple((0, 1, 2, 6, 7, 8))
+        dims = tuple(range(24))
 
         zp_data = np.stack([log_data[d] for d in dims], axis=0)
         # zp_data = log_data[:3, ...]
 
         zero_mask = np.abs(zp_data) < 0.001
         filtered = filter_zeromask(zero_mask)
-        dbs = DBSCAN(eps=3, min_samples=2)
-        dim_zeroes = [np.concat([np.argwhere(tr) for tr in d])
+        dbs = DBSCAN(eps=2, min_samples=2)
+        dim_zeroes = [np.concatenate([np.argwhere(tr) for tr in d])
                       for d in filtered]
         dim_cluster_labels = [dbs.fit_predict(d) for d in dim_zeroes]
-        if apply_filter:
-            # thresh over n trajs
-            # zero_points = [[*np.argwhere(d > 5)] * 20 for d in mask_sums]
-            # local maxima + thresh
-            # TODO: thresh after local max?
-            # sum_thresh = np.where(mask_sums > 12, mask_sums, 0)
-            # zero_points = [argrelextrema(d, np.greater_equal)[0]
-            #                for d in sum_thresh]
 
-            # =============================
-            # zero_points = argrelextrema(mask_sums, np.greater_equal)[0]
-            # zero_points = np.array(
-            #     [i for i in zero_points if mask_sums[i] > 4]  # 18
-            # )
+        # Compute the mean of all clusters
+        dim_cluster_means = []
+        for dim in range(len(dim_zeroes)):
+            unique_labels = np.unique(dim_cluster_labels[dim])
+            cluster_means = []
+            for label in unique_labels:
+                if label == -1:
+                    continue
+                cluster_mean = np.mean(dim_zeroes[dim][dim_cluster_labels[dim] == label], axis=0)
+                cluster_means.append(cluster_mean)
+            dim_cluster_means.append(cluster_means)
 
-            zero_points = [[np.argwhere(tr) for tr in d] for d in filtered]
-        else:
-            zero_points = [np.argwhere(d) for d in zero_mask]
+        zero_points = dim_cluster_means
+
+        dbs = DBSCAN(eps=3, min_samples=3)
+        global_zero_labels = dbs.fit_predict(np.concatenate(zero_points))
+        global_zero_means = []
+        for label in np.unique(global_zero_labels):
+            if label == -1:
+                continue
+            global_zero_means.append(np.mean(np.concatenate(zero_points)[global_zero_labels == label], axis=0))
+
+        global_zero_means = sorted(global_zero_means)
+        while global_zero_means[0] < 9:
+            global_zero_means = global_zero_means[1:]
+        while global_zero_means[-1] > n_samples - 9:
+            global_zero_means = global_zero_means[:-1]
     else:
         zero_points = None
 
@@ -1281,18 +1291,16 @@ def plot_component_time_series(log_data, fig_size=(12, 10), show_zeros=False,
 
     for i, md in enumerate(dims):
         d = md % 3
-        m = md // 3
         f = md // 12
-        # print(i, md, d, f, m)
-        for tr in range(20):
-            zp = [] if zero_points is None else zero_points[i][tr]
-            for x in zp:
-                ax[m, f].axvline(x=x, linestyle=':', color=dim_colors[d],
-                                 alpha=0.5)
+        m = md // 3 - 4*f
+        zp = [] if zero_points is None else zero_points[i]
+        for x in zp:
+            ax[m, f].axvline(x=x, linestyle=':', color=dim_colors[d],
+                                alpha=0.6)
 
-            # zp = [] if zero_points is None else zero_points
-            # for x in zp:
-            #     ax[m, f].axvline(x=x, linestyle=':', color='k',
-            #                     alpha=0.5)
+    for f in range(2):
+        for m in range(4):
+            for x in global_zero_means:
+                ax[m, f].axvline(x=x, linestyle='dashed', color='k', alpha=1)
 
     plt.show()
