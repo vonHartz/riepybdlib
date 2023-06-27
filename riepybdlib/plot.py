@@ -1234,29 +1234,36 @@ def filter_zeromask(array):
 def plot_component_time_series(log_data, fig_size=(12, 10), show_zeros=False,
                                apply_filter=True):
     from scipy.signal import argrelextrema
+    from sklearn.cluster import DBSCAN
     if show_zeros:
-        # zero_points = [[np.argwhere(np.abs(traj) < 0.0001) for traj in d]
-        #                for d in log_data]
 
-        # if apply_filter:
-        #     # filter out consecutive values (with diff < threshold) and only keep
-        #     # left and right value
-        #     zero_points = [[filter_zeropoints(traj) for traj in d] for d in zero_points]
+        dims = tuple((0, 1, 2, 6, 7, 8))
 
-        zp_data = np.concatenate((log_data[:3, ...], log_data[6:9, ...]), axis=0)
+        zp_data = np.stack([log_data[d] for d in dims], axis=0)
+        # zp_data = log_data[:3, ...]
 
-        zero_mask = np.abs(zp_data) < 0.0001
+        zero_mask = np.abs(zp_data) < 0.001
         filtered = filter_zeromask(zero_mask)
-        mask_sums = np.sum(filtered, axis=1).sum(axis=0)
+        dbs = DBSCAN(eps=3, min_samples=2)
+        dim_zeroes = [np.concat([np.argwhere(tr) for tr in d])
+                      for d in filtered]
+        dim_cluster_labels = [dbs.fit_predict(d) for d in dim_zeroes]
         if apply_filter:
             # thresh over n trajs
             # zero_points = [[*np.argwhere(d > 5)] * 20 for d in mask_sums]
             # local maxima + thresh
             # TODO: thresh after local max?
-            sum_thresh = np.where(mask_sums > 12, mask_sums, 0)
+            # sum_thresh = np.where(mask_sums > 12, mask_sums, 0)
             # zero_points = [argrelextrema(d, np.greater_equal)[0]
             #                for d in sum_thresh]
-            zero_points = argrelextrema(sum_thresh, np.greater_equal)[0]
+
+            # =============================
+            # zero_points = argrelextrema(mask_sums, np.greater_equal)[0]
+            # zero_points = np.array(
+            #     [i for i in zero_points if mask_sums[i] > 4]  # 18
+            # )
+
+            zero_points = [[np.argwhere(tr) for tr in d] for d in filtered]
         else:
             zero_points = [np.argwhere(d) for d in zero_mask]
     else:
@@ -1272,14 +1279,20 @@ def plot_component_time_series(log_data, fig_size=(12, 10), show_zeros=False,
                 for tr in range(20):
                     ax[m, f].plot(log_data[idx, tr], dim_colors[d], alpha=0.2)
 
-                # zp = [] if zero_points is None else zero_points[idx]  # [tr]
-                # for x in zp:
-                #     ax[m, f].axvline(x=x, linestyle=':', color=dim_colors[d],
-                #                     alpha=0.5)
-
-            zp = [] if zero_points is None else zero_points
+    for i, md in enumerate(dims):
+        d = md % 3
+        m = md // 3
+        f = md // 12
+        # print(i, md, d, f, m)
+        for tr in range(20):
+            zp = [] if zero_points is None else zero_points[i][tr]
             for x in zp:
-                ax[m, f].axvline(x=x, linestyle=':', color='k',
-                                alpha=0.5)
+                ax[m, f].axvline(x=x, linestyle=':', color=dim_colors[d],
+                                 alpha=0.5)
+
+            # zp = [] if zero_points is None else zero_points
+            # for x in zp:
+            #     ax[m, f].axvline(x=x, linestyle=':', color='k',
+            #                     alpha=0.5)
 
     plt.show()

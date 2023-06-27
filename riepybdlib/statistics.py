@@ -825,33 +825,37 @@ class GMM:
 
     def sammi_init(self, npdata, includes_time=False, threshold=0.05):
 
+        from scipy.ndimage import gaussian_filter1d
+
         n_time_steps = npdata.shape[1]
 
         log_data = np.stack(
             [self.np_to_manifold_to_np(traj) for traj in npdata])
         # grad = np.gradient(log_data, 1/n_time_steps, axis=1).transpose(2, 0, 1)
         # sec_grad = np.gradient(grad, 1/n_time_steps, axis=2)
-        grad = np.gradient(log_data,axis=1).transpose(2, 0, 1)
-        sec_grad = np.gradient(grad, axis=2)
+        grad = np.gradient(log_data, axis=1).transpose(2, 0, 1)
+        grad = gaussian_filter1d(grad, 2)
+        # sec_grad = np.gradient(grad, axis=2)
+        # sec_grad = gaussian_filter1d(sec_grad, 2)
 
         if includes_time:
             orig = log_data.transpose(2, 0, 1)[1:]
             grad = grad[1:]
-            sec_grad = sec_grad[1:]
+            # sec_grad = sec_grad[1:]
 
         # fctplt.plot_component_time_series(orig)
-        # fctplt.plot_component_time_series(grad)
+        fctplt.plot_component_time_series(grad, (24, 20), show_zeros=True)
         # fctplt.plot_component_time_series(sec_grad, (24, 20), show_zeros=True,
         #                                   apply_filter=False)
-        fctplt.plot_component_time_series(sec_grad, (24, 20), show_zeros=True)
+        # fctplt.plot_component_time_series(sec_grad, (24, 20), show_zeros=True)
 
         # Frame seems unimportant for derivatives, so just take the first one
         # Then take only zero positins of 2nd derivative?
         # How to filter stretches of zero points?
 
         # find zero points for all dimensions
-        zero_points = [[np.argwhere(np.abs(d) < threshold) for d in traj]
-                       for traj in grad]
+        # zero_points = [[np.argwhere(np.abs(d) < threshold) for d in traj]
+        #                for traj in grad]
 
         # for i, d in enumerate(zero_points):
         #     print(f"=={i}======")
