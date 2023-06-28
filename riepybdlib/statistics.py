@@ -654,7 +654,10 @@ class GMM:
             self.base = base
 
     def set_n_components(self, n_components, warn=True):
-        logger.warning("Changing number of components resets the GMM.")
+        logger.info(f"Changing number of components to {n_components}")
+
+        if warn:
+            logger.warning("Changing number of components resets the GMM.")
 
         mu0 = self.manifold.id_elem
         sigma0 = np.eye(self.manifold.n_dimT)
