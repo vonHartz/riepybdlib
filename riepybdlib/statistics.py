@@ -777,7 +777,15 @@ class GMM:
     def bci_from_lik(self, lik):
         # likihhod is the likelihood of each data point to belong to each state
         # so aggregate over states
-        return -2 * np.log(lik.sum(0)+1e-200).mean() * len(lik)  # TODO: + self._n_parameters() * np.log(X.shape[0])
+        return -2 * np.log(lik.sum(0)+1e-200).mean() * lik.shape[1] + \
+            self._n_parameters * np.log(lik.shape[1])
+    
+    @property
+    def _n_parameters(self):
+        logger.warning('N params needs to be completed depending on reg_type.'
+                       'Actually, the current implementation is incomplete.')
+        # see https://github.com/scikit-learn/scikit-learn/blob/364c77e047ca08a95862becf40a04fe9d4cd2c98/sklearn/mixture/_gaussian_mixture.py#L803
+        return self.n_components
 
     def init_time_based(self,t,data, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE):
 
@@ -847,9 +855,10 @@ class GMM:
 
         return timing_sep
 
-    def sammi_init(self, npdata, includes_time=False, debug=False,
+    def sammi_init(self, npdata, includes_time=False, debug_borders=False,
                    reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE,
-                   plot=False, max_local_components=3):
+                   plot=False, max_local_components=3, debug_multimodal=True,
+                   plot_cb=None):
 
         from scipy.ndimage import gaussian_filter1d
         from sklearn.cluster import DBSCAN
@@ -913,6 +922,27 @@ class GMM:
 
             return global_zero_means, dim_cluster_means
 
+        def fit_multimodal_components(local_data, debug=False, plot=False):
+
+            candidate_gmms = []
+            bci_scores = []
+            for i in range(1, max_local_components + 1):
+                candidate = GMM(self.manifold, n_components=i,
+                                base=self.base)
+                candidate.kmeans_from_np(local_data)
+                b, _ = candidate.fit_from_np(local_data, plot=plot)  # TODO: regularization
+                if debug:
+                    plot_cb(plot_traj=True, plot_gaussians=True,
+                            model=candidate)
+                candidate_gmms.append(candidate)
+                bci_scores.append(candidate.bci_from_lik(b))
+
+            incumbent = candidate_gmms[np.argmax(bci_scores)]
+
+            print(bci_scores)
+
+            return incumbent
+
         n_time_steps = npdata.shape[1]
 
         logger.info('Estimating component borders ...')
@@ -928,46 +958,34 @@ class GMM:
 
         borders, dim_borders = get_components(grad)
 
-        if debug:
+        if debug_borders:
             fctplt.plot_component_time_series(grad, (24, 20), borders,
                                               dim_borders)
 
         borders = [0] + borders
 
-        self.set_n_components(len(borders))
+        # self.set_n_components(len(borders))
 
         borders.append(n_time_steps - 1)
 
         t = np.arange(n_time_steps)
 
-        gaussians = []
+        component_gmms = []
 
-        # Fit gaussians to the components
-        # TODO: find multimodalities in components and fit multiple gaussians
-        # if needed
-        for i, g in tqdm(enumerate(self.gaussians), desc='Fitting components',
-                         total=self.n_components):
-            if plot:
-                logger.info('Fitting GMM component %i/%i'%(i+1, self.n_components),
-                            filter=False)
+        logger.info('Estimating component  modalities ...')
+        for i in tqdm(range(len(borders) - 1), desc='Fitting components'):
             # Select elements:
             idtmp = (t>=borders[i])*(t<borders[i+1])
             sl =  np.ix_(range(npdata.shape[0]), idtmp, range(npdata.shape[2]))
-
             local_data = npdata[sl].reshape(-1, npdata.shape[2])
+            
+            component_gmms.append(
+                fit_multimodal_components(local_data, plot=plot,
+                                          debug=debug_multimodal))
 
-            candidate_gmms = []
-            bci_scores = []
-            for i in range(1, max_local_components + 1):
-                candidate = GMM(self.manifold, n_components=i+1,
-                                base=self.base)
-                b, _ = candidate.fit_from_np(local_data)  # TODO: regularization
-                candidate_gmms.append(candidate)
-                bci_scores.append(candidate.bci_from_lik(b))
-
-            incumbent = candidate_gmms[np.argmax(bci_scores)]
-
-            print(bci_scores)
+            
+        # TODO: join GMMs
+        # TODO: set priors
 
             # tmpdata = self.manifold.np_to_manifold(
             #     npdata[sl].reshape(-1, npdata.shape[2]))
