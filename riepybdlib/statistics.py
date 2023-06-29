@@ -764,6 +764,21 @@ class GMM:
             
         return lik, avg_loglik
 
+    # def score(self, data):
+    #     '''Compute log-likelihood of data given the model'''
+    #     lik = self.expectation(data)
+    #     print(lik.shape)
+    #     return np.log(lik.sum(0)+1e-200).mean()
+    
+    # def bci(self, data):
+    #     logger.warning('BCI is not yet fully implemented for GMMs')
+    #     return -2 * self.score(data) * len(data) 
+
+    def bci_from_lik(self, lik):
+        # likihhod is the likelihood of each data point to belong to each state
+        # so aggregate over states
+        return -2 * np.log(lik.sum(0)+1e-200).mean() * len(lik)  # TODO: + self._n_parameters() * np.log(X.shape[0])
+
     def init_time_based(self,t,data, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE):
 
         if t.ndim==2:
@@ -834,7 +849,7 @@ class GMM:
 
     def sammi_init(self, npdata, includes_time=False, debug=False,
                    reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE,
-                   plot=False):
+                   plot=False, max_local_components=3):
 
         from scipy.ndimage import gaussian_filter1d
         from sklearn.cluster import DBSCAN
@@ -925,6 +940,8 @@ class GMM:
 
         t = np.arange(n_time_steps)
 
+        gaussians = []
+
         # Fit gaussians to the components
         # TODO: find multimodalities in components and fit multiple gaussians
         # if needed
@@ -937,14 +954,29 @@ class GMM:
             idtmp = (t>=borders[i])*(t<borders[i+1])
             sl =  np.ix_(range(npdata.shape[0]), idtmp, range(npdata.shape[2]))
 
-            tmpdata = self.manifold.np_to_manifold(
-                npdata[sl].reshape(-1, npdata.shape[2]))
-            
-            # Perform mle:
-            g.mle(tmpdata, reg_lambda=reg_lambda, reg_type=reg_type,
-                  plot_process=plot)
-            self.priors[i] = len(idtmp)
-        self.priors = self.priors / self.priors.sum()
+            local_data = npdata[sl].reshape(-1, npdata.shape[2])
+
+            candidate_gmms = []
+            bci_scores = []
+            for i in range(1, max_local_components + 1):
+                candidate = GMM(self.manifold, n_components=i+1,
+                                base=self.base)
+                b, _ = candidate.fit_from_np(local_data)  # TODO: regularization
+                candidate_gmms.append(candidate)
+                bci_scores.append(candidate.bci_from_lik(b))
+
+            incumbent = candidate_gmms[np.argmax(bci_scores)]
+
+            print(bci_scores)
+
+            # tmpdata = self.manifold.np_to_manifold(
+            #     npdata[sl].reshape(-1, npdata.shape[2]))
+           
+        #     # Perform mle:
+        #     g.mle(tmpdata, reg_lambda=reg_lambda, reg_type=reg_type,
+        #           plot_process=plot)
+        #     self.priors[i] = len(idtmp)
+        # self.priors = self.priors / self.priors.sum()
 
         return borders
 
