@@ -881,7 +881,7 @@ class GMM:
         return timing_sep
 
     def sammi_init(self, npdata, includes_time=False, max_local_components=3,
-                   debug_borders=False, plot_cb=None, debug_multimodal=True,
+                   debug_borders=False, plot_cb=None, debug_multimodal=False,
                    em_kwargs=None, kmeans_kwargs=None):
 
         from scipy.ndimage import gaussian_filter1d
@@ -997,6 +997,7 @@ class GMM:
         t = np.arange(n_time_steps)
 
         component_gmms = []
+        global_priors = []
 
         logger.info('Estimating component  modalities ...')
         for i in tqdm(range(len(borders) - 1), desc='Fitting components'):
@@ -1006,19 +1007,16 @@ class GMM:
             local_data = npdata[sl].reshape(-1, npdata.shape[2])
             
             component_gmms.append(fit_multimodal_components(local_data))
+            global_priors.append(len(idtmp))
 
-            
-        # TODO: join GMMs
-        # TODO: set priors
+        self.gaussians = [g for c in component_gmms for g in c.gaussians]
 
-        self._last_reg_type = reg_type
+        # join global and local priors
+        global_priors = np.array(global_priors) / np.sum(global_priors)
+        self.priors = [gp*lp for c, gp in zip(component_gmms, global_priors)
+                       for lp in c.priors]
 
-           
-        #     # Perform mle:
-        #     g.mle(tmpdata, reg_lambda=reg_lambda, reg_type=reg_type,
-        #           plot_process=plot)
-        #     self.priors[i] = len(idtmp)
-        # self.priors = self.priors / self.priors.sum()
+        self._last_reg_type = em_kwargs['reg_type']
 
         return borders
 
