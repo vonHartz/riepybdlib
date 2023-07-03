@@ -668,7 +668,6 @@ class GMM:
         sigma0 = np.eye(self.manifold.n_dimT)
 
         self.n_components = n_components
-        self.nb_states = n_components
         self.priors = np.ones(n_components)/n_components
 
         self.gaussians = []
@@ -1012,8 +1011,6 @@ class GMM:
 
         self.gaussians = [g for c in component_gmms for g in c.gaussians]
         self.n_components = len(self.gaussians)
-        self.nb_states = self.n_components
-        # TODO: both express the same thing and seem to be used inconsistently
 
         # join global and local priors
         global_priors = np.array(global_priors) / np.sum(global_priors)
