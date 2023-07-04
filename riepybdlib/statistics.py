@@ -730,7 +730,7 @@ class GMM:
     # @logger.contextualize(filter=False)
     def fit_from_np(self, npdata, convthres=1e-5, maxsteps=100, minsteps=5, reg_lambda=1e-3, 
                     reg_lambda2=1e-3, reg_type= RegularizationType.SHRINKAGE,
-                    plot=False):
+                    plot=False, fixed_component_from_last_step=False):
         '''Initialize trajectory GMM using a time-based approach'''
 
         data = self.manifold.np_to_manifold(npdata)
@@ -882,7 +882,8 @@ class GMM:
 
     def sammi_init(self, npdata, includes_time=False, max_local_components=3,
                    debug_borders=False, plot_cb=None, debug_multimodal=False,
-                   em_kwargs=None, kmeans_kwargs=None):
+                   em_kwargs=None, kmeans_kwargs=None,
+                   fixed_component_from_last_step=False):
 
         from scipy.ndimage import gaussian_filter1d
         from sklearn.cluster import DBSCAN
@@ -946,11 +947,11 @@ class GMM:
 
             return global_zero_means, dim_cluster_means
 
-        def fit_multimodal_components(local_data):
+        def fit_multimodal_components(local_data, max_components):
 
             candidate_gmms = []
             bci_scores = []
-            for i in range(1, max_local_components + 1):
+            for i in range(1, max_components + 1):
                 candidate = GMM(self.manifold, n_components=i,
                                 base=self.base)
                 candidate.kmeans_from_np(local_data, **kmeans_kwargs)
@@ -992,6 +993,9 @@ class GMM:
 
         borders = [0] + borders
 
+        if fixed_component_from_last_step:
+            borders.append(n_time_steps - 2)
+
         borders.append(n_time_steps - 1)
 
         t = np.arange(n_time_steps)
@@ -1006,7 +1010,13 @@ class GMM:
             sl =  np.ix_(range(npdata.shape[0]), idtmp, range(npdata.shape[2]))
             local_data = npdata[sl].reshape(-1, npdata.shape[2])
             
-            component_gmms.append(fit_multimodal_components(local_data))
+            if fixed_component_from_last_step and i == len(borders) - 2:
+                n_max_components = 1  # fixed component should be unimodal
+            else:
+                n_max_components = max_local_components
+
+            component_gmms.append(
+                fit_multimodal_components(local_data, n_max_components))
             global_priors.append(len(idtmp))
 
         self.gaussians = [g for c in component_gmms for g in c.gaussians]
@@ -1838,7 +1848,8 @@ class HMM(GMM):
 
     def em(self, demos, dep=None, table=None, dep_mask=None,
            left_to_right=False, nb_max_steps=40, loop=False, obs_fixed=False,
-           trans_reg=None, mle_kwargs=None, finish_kwargs=None):
+           trans_reg=None, mle_kwargs=None, finish_kwargs=None,
+           fix_last_component=False):
         """
 
         :param demos:
@@ -1903,6 +1914,11 @@ class HMM(GMM):
                 "When implementing this, also update all other occurances below.")
             self.sigma *= dep_mask
 
+
+        gaussians = self.gaussians
+        if fix_last_component:
+            gaussians = gaussians[:-1]
+
         for it in tqdm(range(nb_max_steps), desc='HMM EM'):
 
             for n, demo in enumerate(demos):
@@ -1918,7 +1934,7 @@ class HMM(GMM):
 
             # M-step
             if not obs_fixed:
-                for i,gauss in enumerate(self.gaussians):
+                for i,gauss in enumerate(gaussians):
                     gauss.mle(data_rbd, gamma2[i], **mle_kwargs)
 
                 if dep_mask is not None:
@@ -1956,7 +1972,7 @@ class HMM(GMM):
                 logger.info("HMM EM converged")
 
                 if finish_kwargs is not None:
-                    for i, gauss in enumerate(self.gaussians):
+                    for i, gauss in enumerate(gaussians):
                         gauss._update_empirical_covariance(
                             data_rbd, gamma2[i], **finish_kwargs)
 
