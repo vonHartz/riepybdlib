@@ -730,13 +730,18 @@ class GMM:
     # @logger.contextualize(filter=False)
     def fit_from_np(self, npdata, convthres=1e-5, maxsteps=100, minsteps=5, reg_lambda=1e-3, 
                     reg_lambda2=1e-3, reg_type= RegularizationType.SHRINKAGE,
-                    plot=False, fixed_component_from_last_step=False):
+                    plot=False, fix_last_component=False):
         '''Initialize trajectory GMM using a time-based approach'''
 
         data = self.manifold.np_to_manifold(npdata)
 
         # Make sure that the data is a tuple of list:
         n_data = len(data)
+
+        gaussians = self.gaussians
+
+        if fix_last_component:
+            gaussians = gaussians[:-1]
         
         prvlik = 0
         avg_loglik = []
@@ -748,7 +753,7 @@ class GMM:
 
             # Maximization:
             # - Update Gaussian:
-            for i,gauss in enumerate(self.gaussians):
+            for i,gauss in enumerate(gaussians):
                 gauss.mle(data,gamma1[i,], reg_lambda, reg_lambda2, reg_type,
                           plot_process=plot)
             # - Update priors: 
@@ -962,7 +967,7 @@ class GMM:
                 candidate_gmms.append(candidate)
                 bci_scores.append(candidate.bci_from_lik(b))
 
-            inc_idx = np.argmax(bci_scores)
+            inc_idx = np.argmin(bci_scores)
             incumbent = candidate_gmms[inc_idx]
 
             bci_str = ', '.join(
