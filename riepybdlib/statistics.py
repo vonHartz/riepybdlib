@@ -62,6 +62,9 @@ class RegularizationType(Enum):
     COMBINED  = 3
     DIAGONAL_ONLY = 4
     ADD_CONSTANT = 5
+    # NOTE: there's also spherical, which is an diagonal scaled by a constant
+    # for all dimensions. Ie. like diagonal, but with a single value.
+    # Didn't see a reasoon to implement this, as it is very restrictive.
 
 colors = tuple(('tab:red', 'tab:green', 'tab:blue'))
 labels = ['x', 'y', 'z']
@@ -653,6 +656,8 @@ class GMM:
         else:
             self.base = base
 
+        self._last_reg_type = None
+
     def set_n_components(self, n_components, warn=True):
         logger.info(f"Changing number of components to {n_components}")
 
@@ -717,19 +722,26 @@ class GMM:
                 prvlik = avglik
         if (st+1) >= maxsteps:
              logger.info('EM did not converge in {0} steps'.format(maxsteps))
+
+        self._last_reg_type = reg_type
             
         return lik, avg_loglik
 
     # @logger.contextualize(filter=False)
     def fit_from_np(self, npdata, convthres=1e-5, maxsteps=100, minsteps=5, reg_lambda=1e-3, 
                     reg_lambda2=1e-3, reg_type= RegularizationType.SHRINKAGE,
-                    plot=False):
+                    plot=False, fix_last_component=False):
         '''Initialize trajectory GMM using a time-based approach'''
 
         data = self.manifold.np_to_manifold(npdata)
 
         # Make sure that the data is a tuple of list:
         n_data = len(data)
+
+        gaussians = self.gaussians
+
+        if fix_last_component:
+            gaussians = gaussians[:-1]
         
         prvlik = 0
         avg_loglik = []
@@ -741,7 +753,7 @@ class GMM:
 
             # Maximization:
             # - Update Gaussian:
-            for i,gauss in enumerate(self.gaussians):
+            for i,gauss in enumerate(gaussians):
                 gauss.mle(data,gamma1[i,], reg_lambda, reg_lambda2, reg_type,
                           plot_process=plot)
             # - Update priors: 
@@ -761,18 +773,10 @@ class GMM:
                 prvlik = avglik
         if (st+1) >= maxsteps:
              logger.warning('EM did not converge in {0} steps'.format(maxsteps))
-            
-        return lik, avg_loglik
 
-    # def score(self, data):
-    #     '''Compute log-likelihood of data given the model'''
-    #     lik = self.expectation(data)
-    #     print(lik.shape)
-    #     return np.log(lik.sum(0)+1e-200).mean()
-    
-    # def bci(self, data):
-    #     logger.warning('BCI is not yet fully implemented for GMMs')
-    #     return -2 * self.score(data) * len(data) 
+        self._last_reg_type = reg_type
+
+        return lik, avg_loglik
 
     def bci_from_lik(self, lik):
         # likihhod is the likelihood of each data point to belong to each state
@@ -781,11 +785,32 @@ class GMM:
             self._n_parameters * np.log(lik.shape[1])
     
     @property
-    def _n_parameters(self):
-        logger.warning('N params needs to be completed depending on reg_type.'
-                       'Actually, the current implementation is incomplete.')
-        # see https://github.com/scikit-learn/scikit-learn/blob/364c77e047ca08a95862becf40a04fe9d4cd2c98/sklearn/mixture/_gaussian_mixture.py#L803
-        return self.n_components
+    def _n_parameters(self, reg_type=None):
+
+        if reg_type is None:
+            reg_type = self._last_reg_type
+
+        n_features = self.mu.shape[1]
+        n_components = self.n_components
+
+        mean_params = self.n_components * n_features
+
+        if reg_type in [RegularizationType.NONE,
+                        RegularizationType.SHRINKAGE,
+                        RegularizationType.DIAGONAL,
+                        RegularizationType.COMBINED,
+                        RegularizationType.ADD_CONSTANT]:
+            cov_params = n_components * n_features * (n_features + 1) / 2.
+        elif reg_type == RegularizationType.DIAGONAL_ONLY:
+            cov_params = n_components * n_features
+        elif reg_type is None:
+            raise ValueError("Regularization type not set. Did perform fit?"
+                             "In fitting calls, uses RegularizationType.NONE "
+                             "instead of None!")
+        else:
+            raise ValueError('Unkown regularization type.')
+
+        return self.n_components + mean_params + cov_params - 1
 
     def init_time_based(self,t,data, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE):
 
@@ -811,6 +836,9 @@ class GMM:
             g.mle(tmpdata, reg_lambda=reg_lambda, reg_type=reg_type)
             self.priors[i] = len(idtmp)
         self.priors = self.priors / self.priors.sum()
+
+        self._last_reg_type = reg_type
+
 
     def init_time_based_from_np(self, npdata, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE, plot=False,
                                 drop_time=False):
@@ -853,12 +881,14 @@ class GMM:
             self.priors[i] = len(idtmp)
         self.priors = self.priors / self.priors.sum()
 
+        self._last_reg_type = reg_type
+
         return timing_sep
 
-    def sammi_init(self, npdata, includes_time=False, debug_borders=False,
-                   reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE,
-                   plot=False, max_local_components=3, debug_multimodal=True,
-                   plot_cb=None):
+    def sammi_init(self, npdata, includes_time=False, max_local_components=3,
+                   debug_borders=False, plot_cb=None, debug_multimodal=False,
+                   em_kwargs=None, kmeans_kwargs=None,
+                   fixed_component_from_last_step=False):
 
         from scipy.ndimage import gaussian_filter1d
         from sklearn.cluster import DBSCAN
@@ -922,24 +952,28 @@ class GMM:
 
             return global_zero_means, dim_cluster_means
 
-        def fit_multimodal_components(local_data, debug=False, plot=False):
+        def fit_multimodal_components(local_data, max_components):
 
             candidate_gmms = []
             bci_scores = []
-            for i in range(1, max_local_components + 1):
+            for i in range(1, max_components + 1):
                 candidate = GMM(self.manifold, n_components=i,
                                 base=self.base)
-                candidate.kmeans_from_np(local_data)
-                b, _ = candidate.fit_from_np(local_data, plot=plot)  # TODO: regularization
-                if debug:
+                candidate.kmeans_from_np(local_data, **kmeans_kwargs)
+                b, _ = candidate.fit_from_np(local_data, **em_kwargs)
+                if debug_multimodal:
                     plot_cb(plot_traj=True, plot_gaussians=True,
                             model=candidate)
                 candidate_gmms.append(candidate)
                 bci_scores.append(candidate.bci_from_lik(b))
 
-            incumbent = candidate_gmms[np.argmax(bci_scores)]
+            inc_idx = np.argmin(bci_scores)
+            incumbent = candidate_gmms[inc_idx]
 
-            print(bci_scores)
+            bci_str = ', '.join(
+                [f'{c+1}: {bci:.2f}' for c, bci in enumerate(bci_scores)])
+            logger.info(f'BCI scores: {bci_str}')
+            logger.info(f'Selecting incumbent: {inc_idx+1} components.')
 
             return incumbent
 
@@ -964,13 +998,15 @@ class GMM:
 
         borders = [0] + borders
 
-        # self.set_n_components(len(borders))
+        if fixed_component_from_last_step:
+            borders.append(n_time_steps - 2)
 
         borders.append(n_time_steps - 1)
 
         t = np.arange(n_time_steps)
 
         component_gmms = []
+        global_priors = []
 
         logger.info('Estimating component  modalities ...')
         for i in tqdm(range(len(borders) - 1), desc='Fitting components'):
@@ -979,22 +1015,24 @@ class GMM:
             sl =  np.ix_(range(npdata.shape[0]), idtmp, range(npdata.shape[2]))
             local_data = npdata[sl].reshape(-1, npdata.shape[2])
             
+            if fixed_component_from_last_step and i == len(borders) - 2:
+                n_max_components = 1  # fixed component should be unimodal
+            else:
+                n_max_components = max_local_components
+
             component_gmms.append(
-                fit_multimodal_components(local_data, plot=plot,
-                                          debug=debug_multimodal))
+                fit_multimodal_components(local_data, n_max_components))
+            global_priors.append(len(idtmp))
 
-            
-        # TODO: join GMMs
-        # TODO: set priors
+        self.gaussians = [g for c in component_gmms for g in c.gaussians]
+        self.n_components = len(self.gaussians)
 
-            # tmpdata = self.manifold.np_to_manifold(
-            #     npdata[sl].reshape(-1, npdata.shape[2]))
-           
-        #     # Perform mle:
-        #     g.mle(tmpdata, reg_lambda=reg_lambda, reg_type=reg_type,
-        #           plot_process=plot)
-        #     self.priors[i] = len(idtmp)
-        # self.priors = self.priors / self.priors.sum()
+        # join global and local priors
+        global_priors = np.array(global_priors) / np.sum(global_priors)
+        self.priors = [gp*lp for c, gp in zip(component_gmms, global_priors)
+                       for lp in c.priors]
+
+        self._last_reg_type = em_kwargs['reg_type']
 
         return borders
 
@@ -1045,11 +1083,9 @@ class GMM:
                 break;
             else:
                 id_old = id_min
-#    def action(self,h):
-#        newgmm = GMM(self.n_components, self.manifold, base=h)
-#        for i,gauss in enumerate(self.gaussians):
-#            newmu = gauss.manifold.action(gauss.mu, self.base, h)
-#            newgmm.gaussian[i] = gauss.action(newmu)
+
+        self._last_reg_type = reg_type
+
 
     # @logger.contextualize(filter=False)
     def kmeans_from_np(self,npdata, maxsteps=100,reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE, plot=False):
@@ -1095,6 +1131,9 @@ class GMM:
                 break;
             else:
                 id_old = id_min
+
+        self._last_reg_type = reg_type
+
 
     def log_from_np(self, npdata, base=None):
         data = self.manifold.np_to_manifold(npdata)
@@ -1349,8 +1388,8 @@ class GMM:
 
     def np_to_manifold_to_np(self, npdata_in, i_in=None, base=None):
         data = self.manifold.np_to_manifold(npdata_in, dim=i_in)
-        if base is None:
-            base = self.base
+        # if base is None:
+        #     base = self.base
         return self.manifold.log(data, base, dim=i_in)
 
     def save(self,name):
@@ -1814,7 +1853,8 @@ class HMM(GMM):
 
     def em(self, demos, dep=None, table=None, dep_mask=None,
            left_to_right=False, nb_max_steps=40, loop=False, obs_fixed=False,
-           trans_reg=None, mle_kwargs=None, finish_kwargs=None):
+           trans_reg=None, mle_kwargs=None, finish_kwargs=None,
+           fix_last_component=False):
         """
 
         :param demos:
@@ -1879,6 +1919,11 @@ class HMM(GMM):
                 "When implementing this, also update all other occurances below.")
             self.sigma *= dep_mask
 
+
+        gaussians = self.gaussians
+        if fix_last_component:
+            gaussians = gaussians[:-1]
+
         for it in tqdm(range(nb_max_steps), desc='HMM EM'):
 
             for n, demo in enumerate(demos):
@@ -1894,7 +1939,7 @@ class HMM(GMM):
 
             # M-step
             if not obs_fixed:
-                for i,gauss in enumerate(self.gaussians):
+                for i,gauss in enumerate(gaussians):
                     gauss.mle(data_rbd, gamma2[i], **mle_kwargs)
 
                 if dep_mask is not None:
@@ -1932,7 +1977,7 @@ class HMM(GMM):
                 logger.info("HMM EM converged")
 
                 if finish_kwargs is not None:
-                    for i, gauss in enumerate(self.gaussians):
+                    for i, gauss in enumerate(gaussians):
                         gauss._update_empirical_covariance(
                             data_rbd, gamma2[i], **finish_kwargs)
 
