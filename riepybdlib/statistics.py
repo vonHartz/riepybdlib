@@ -1216,7 +1216,7 @@ class GMM:
             
         # Compute weights:
         h = np.zeros( (n_data,self.n_components) )
-        h= self.margin(i_in).expectation(data_in)
+        h = self.margin(i_in).expectation(data_in)
         h = (h/h.sum(0)).T # Normalize w.r.t states
         
         gmr_list = []
