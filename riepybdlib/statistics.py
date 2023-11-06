@@ -364,7 +364,6 @@ class Gaussian(object):
         # Batch:
         tmp   = self.manifold.log(x, self.mu)   # Project data in tangent space
         sigma = tmp.T.dot( np.diag(h).dot(tmp)) # Compute covariance
-        
         # Iterative: 
         #sigma = np.zeros( (self.manifold.n_dimT, self.manifold.n_dimT) )
         #tmplist = []
@@ -779,7 +778,7 @@ class GMM:
         return lik, avg_loglik
 
     def bci_from_lik(self, lik):
-        # likihhod is the likelihood of each data point to belong to each state
+        # lik is the likelihood per state, weighted by the priors
         # so aggregate over states
         return -2 * np.log(lik.sum(0)+1e-200).mean() * lik.shape[1] + \
             self._n_parameters * np.log(lik.shape[1])
@@ -883,7 +882,12 @@ class GMM:
 
         self._last_reg_type = reg_type
 
-        return timing_sep
+        data = self.manifold.np_to_manifold(npdata)
+        lik = self.expectation(data)
+        avglik = -np.log(lik.sum(0)+1e-200).mean()
+
+        return lik, avglik, timing_sep
+
 
     def sammi_init(self, npdata, includes_time=False, max_local_components=3,
                    debug_borders=False, plot_cb=None, debug_multimodal=False,
@@ -1034,7 +1038,11 @@ class GMM:
 
         self._last_reg_type = em_kwargs['reg_type']
 
-        return borders
+        data = self.manifold.np_to_manifold(npdata)
+        lik = self.expectation(data)
+        avglik = -np.log(lik.sum(0)+1e-200).mean()
+
+        return lik, avglik, borders
 
     # @logger.contextualize(filter=False)
     def kmeans(self,data, maxsteps=100,reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE ):
@@ -1134,6 +1142,10 @@ class GMM:
 
         self._last_reg_type = reg_type
 
+        lik = self.expectation(data)
+        avglik = -np.log(lik.sum(0)+1e-200).mean()
+
+        return lik, avglik, None
 
     def log_from_np(self, npdata, base=None):
         data = self.manifold.np_to_manifold(npdata)
