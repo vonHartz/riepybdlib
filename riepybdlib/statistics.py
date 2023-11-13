@@ -1983,7 +1983,7 @@ class HMM(GMM):
             # M-step
             if not obs_fixed:
                 for i,gauss in enumerate(gaussians):
-                    gauss.mle(data_rbd, gamma2[i], **mle_kwargs)
+                    gauss.mle(data_rbd, gamma2[i+(1 if fix_first_component else 0)], **mle_kwargs)
 
                 if dep_mask is not None:
                     self.sigma *= dep_mask
