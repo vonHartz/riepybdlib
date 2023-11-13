@@ -1679,8 +1679,18 @@ class HMM(GMM):
                                             reset=initial_obs)
             h = np.expand_dims(h, 0)
         else:
+            h = np.zeros((n_data, self.n_components))
+            for step, point in enumerate(ldata_in):
+                h[step, :] = self.online_forward_message(point, marginal=i_in,
+                                                         reset=initial_obs)
+            # NOTE: online_forward_message takes a new obs and computes the forward
+            # message. It is not meant to be used for sequences of data.
+            # Instead, it assumes the current obs is the next in the sequence.
+            # To start a new sequence, set initial_obs=True (reset).
+            # TODO: pass initial_obs to this method, but only at first step.
             raise NotImplementedError("Need to implement forward messages for "
                                       "sequences of data.")
+
 
         gmr_list = []
         for n, point in enumerate(ldata_in):
