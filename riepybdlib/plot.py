@@ -1221,21 +1221,25 @@ def filter_zeropoints(array, thresh=1):
 def plot_component_time_series(log_data, fig_size=(12, 10),
                                global_zero_points=None, local_zero_points=None):
     
-    n_frames = 2
+    log_dim = log_data.shape[0]
     n_mani_per_frame = 4
-    dims = 3 * n_mani_per_frame * n_frames
+    n_frames = log_dim // (3*n_mani_per_frame)
+
+    print(log_data.shape)
 
     fig, ax = plt.subplots(n_mani_per_frame, n_frames)
+    if n_frames == 1:
+        ax = ax.reshape((n_mani_per_frame, 1))
     fig.set_size_inches(*fig_size)
     dim_colors = ['r', 'g', 'b']
     for f in range(n_frames):
         for m in range(n_mani_per_frame):
             for d in range(3):
                 idx = 12*f + 3*m + d
-                for tr in range(20):
-                    ax[m, f].plot(log_data[idx, tr], dim_colors[d], alpha=0.2)
+                for tr in range(log_data.shape[1]):
+                    ax[m][f].plot(log_data[idx, tr], dim_colors[d], alpha=0.2)
 
-    for md in range(dims):
+    for md in range(log_dim):
         d = md % 3
         f = md // (3*n_mani_per_frame)
         m = md // 3 - n_mani_per_frame*f
