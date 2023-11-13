@@ -729,7 +729,7 @@ class GMM:
     # @logger.contextualize(filter=False)
     def fit_from_np(self, npdata, convthres=1e-5, maxsteps=100, minsteps=5, reg_lambda=1e-3, 
                     reg_lambda2=1e-3, reg_type= RegularizationType.SHRINKAGE,
-                    plot=False, fix_last_component=False):
+                    plot=False, fix_last_component=False, fix_first_component=False):
         '''Initialize trajectory GMM using a time-based approach'''
 
         data = self.manifold.np_to_manifold(npdata)
@@ -741,6 +741,8 @@ class GMM:
 
         if fix_last_component:
             gaussians = gaussians[:-1]
+        if fix_first_component:
+            gaussians = gaussians[1:]
         
         prvlik = 0
         avg_loglik = []
@@ -840,15 +842,34 @@ class GMM:
 
 
     def init_time_based_from_np(self, npdata, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE, plot=False,
-                                drop_time=False):
+                                drop_time=False, fix_first_component=False, fix_last_component=False):
         # Assuming that data is first manifold dimension
         t = npdata[:,0]
 
         if drop_time:
             npdata = npdata[:,1:]
 
+        t_delta = t[1] - t[0]
+        fixed_component_width = 2 * t_delta
+
+        t_min = t.min()
+        t_max = t.max()
+
+        t_start = t_min + fixed_component_width if fix_first_component else t_min
+        t_stop = t_max - fixed_component_width if fix_last_component else t_max
+
+        n_dyn_components = self.n_components - int(fix_first_component) - int(fix_last_component)
+
         # Timing seperation:
-        timing_sep = np.linspace(t.min(), t.max(),self.n_components+1)
+        timing_sep = np.linspace(t_start, t_stop, n_dyn_components+1)
+
+        if fix_first_component:
+            timing_sep = np.concatenate(([t_min], timing_sep))
+
+        if fix_last_component:
+            timing_sep = np.concatenate([timing_sep, [t_max+t_delta]])
+
+        # print(timing_sep)
 
         for i, g in tqdm(enumerate(self.gaussians), desc='Time-based init',
                          total=self.n_components):
@@ -892,7 +913,8 @@ class GMM:
     def sammi_init(self, npdata, includes_time=False, max_local_components=3,
                    debug_borders=False, plot_cb=None, debug_multimodal=False,
                    em_kwargs=None, kmeans_kwargs=None,
-                   fixed_component_from_last_step=False):
+                   fixed_component_from_last_step=False,
+                   fixed_component_from_first_step=False):
 
         from scipy.ndimage import gaussian_filter1d
         from sklearn.cluster import DBSCAN
@@ -1002,6 +1024,8 @@ class GMM:
 
         borders = [0] + borders
 
+        if fixed_component_from_first_step:
+            borders = [1] + borders
         if fixed_component_from_last_step:
             borders.append(n_time_steps - 2)
 
@@ -1019,7 +1043,8 @@ class GMM:
             sl =  np.ix_(range(npdata.shape[0]), idtmp, range(npdata.shape[2]))
             local_data = npdata[sl].reshape(-1, npdata.shape[2])
             
-            if fixed_component_from_last_step and i == len(borders) - 2:
+            if (fixed_component_from_last_step and i == len(borders) - 2) or \
+                (fixed_component_from_first_step and i == 0):
                 n_max_components = 1  # fixed component should be unimodal
             else:
                 n_max_components = max_local_components
@@ -1038,7 +1063,7 @@ class GMM:
 
         self._last_reg_type = em_kwargs['reg_type']
 
-        data = self.manifold.np_to_manifold(npdata)
+        data = self.manifold.np_to_manifold(npdata.reshape(-1, npdata.shape[2]))
         lik = self.expectation(data)
         avglik = -np.log(lik.sum(0)+1e-200).mean()
 
@@ -1096,7 +1121,11 @@ class GMM:
 
 
     # @logger.contextualize(filter=False)
-    def kmeans_from_np(self,npdata, maxsteps=100,reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE, plot=False):
+    def kmeans_from_np(self,npdata, maxsteps=100,reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE, plot=False, fix_first_component=False, fix_last_component=False):
+
+        if fix_first_component or fix_last_component:
+            print(npdata.shape)
+            raise NotImplementedError
 
         data = self.manifold.np_to_manifold(npdata)
         n_data = npdata.shape[0]
@@ -1866,7 +1895,7 @@ class HMM(GMM):
     def em(self, demos, dep=None, table=None, dep_mask=None,
            left_to_right=False, nb_max_steps=40, loop=False, obs_fixed=False,
            trans_reg=None, mle_kwargs=None, finish_kwargs=None,
-           fix_last_component=False):
+           fix_last_component=False, fix_first_component=False):
         """
 
         :param demos:
@@ -1935,6 +1964,8 @@ class HMM(GMM):
         gaussians = self.gaussians
         if fix_last_component:
             gaussians = gaussians[:-1]
+        if fix_first_component:
+            gaussians = gaussians[1:]
 
         for it in tqdm(range(nb_max_steps), desc='HMM EM'):
 
