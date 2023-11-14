@@ -152,8 +152,13 @@ class Gaussian(object):
         try:
             dist = ( dist * np.linalg.solve(self.sigma,dist.T).T ).sum(axis=(dist.ndim-1))
         except np.linalg.LinAlgError:
-            logger.warning('Singular matrix, using lstsq', filter=False)
-            dist = ( dist * np.linalg.lstsq(self.sigma,dist.T,rcond=None)[0].T ).sum(axis=(dist.ndim-1))
+            logger.warning('Singular matrix, adding diag constant', filter=False)
+            try:
+                diag = np.diag([1e-20] * self.sigma.shape[0])
+                dist = ( dist * np.linalg.solve(self.sigma + diag,dist.T).T ).sum(axis=(dist.ndim-1)) 
+            except np.linalg.LinAlgError:
+                logger.warning('Singular matrix, using lstsq', filter=False)
+                dist = ( dist * np.linalg.lstsq(self.sigma,dist.T,rcond=None)[0].T ).sum(axis=(dist.ndim-1))
         # probs =  np.exp( -0.5*dist )/reg 
 
         log_lik = -0.5*dist - np.log(reg)
@@ -484,8 +489,16 @@ class Gaussian(object):
         fR = lambda g,h: man.parallel_transport(np.eye(man.n_dimT), g, h).T
         
         # Decomposition of covariance:
-        lambda_s = np.linalg.inv(self.sigma)
-        lambda_o = np.linalg.inv(other.sigma)
+        try:
+            lambda_s = np.linalg.inv(self.sigma)
+        except np.linalg.LinAlgError:
+            logger.warning("Singular matrix, adding diag constant", filter=False)
+            lambda_s = np.linalg.inv(self.sigma + np.eye(self.sigma.shape[0])*1e-20)
+        try:
+            lambda_o = np.linalg.inv(other.sigma)
+        except np.linalg.LinAlgError:
+            logger.warning("Singular matrix, adding diag constant", filter=False)
+            lambda_o = np.linalg.inv(other.sigma + np.eye(other.sigma.shape[0])*1e-20)
         
         mu  = self.mu # Initial guess
         it=0; diff = 1
@@ -497,7 +510,11 @@ class Gaussian(object):
             lambda_on = Ro.dot( lambda_o.dot( Ro.T) )
 
             # Compute new covariance:
-            sigma = np.linalg.inv( lambda_sn + lambda_on )
+            try:
+                sigma = np.linalg.inv( lambda_sn + lambda_on )
+            except np.linalg.LinAlgError:
+                logger.warning("Singular matrix, adding diag constant", filter=False)
+                sigma = np.linalg.inv( lambda_sn + lambda_on + np.eye(lambda_sn.shape[0])*1e-20 )
 
             # Compute weighted distances:
             d_self  = lambda_sn.dot( Log(self.mu , mu) )
@@ -1760,6 +1777,11 @@ class HMM(GMM):
             B, _ = self._marginal_tmp.obs_likelihood(x)
         else:
             B, _ = self.obs_likelihood(x)
+
+        print(B)
+        print(self.init_priors)
+
+        print(x.shape, B.shape)
 
         if not hasattr(self, '_alpha_tmp') or reset:
             self._alpha_tmp = self.init_priors * B[:, 0]
