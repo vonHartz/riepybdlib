@@ -746,7 +746,8 @@ class GMM:
     # @logger.contextualize(filter=False)
     def fit_from_np(self, npdata, convthres=1e-5, maxsteps=100, minsteps=5, reg_lambda=1e-3, 
                     reg_lambda2=1e-3, reg_type= RegularizationType.SHRINKAGE,
-                    plot=False, fix_last_component=False, fix_first_component=False):
+                    plot=False, fix_last_component=False, fix_first_component=False,
+                    fixed_components_n_steps=2):
         '''Initialize trajectory GMM using a time-based approach'''
 
         data = self.manifold.np_to_manifold(npdata)
@@ -760,6 +761,8 @@ class GMM:
             gaussians = gaussians[:-1]
         if fix_first_component:
             gaussians = gaussians[1:]
+
+        offset = 1 if fix_first_component else 0
         
         prvlik = 0
         avg_loglik = []
@@ -772,7 +775,7 @@ class GMM:
             # Maximization:
             # - Update Gaussian:
             for i,gauss in enumerate(gaussians):
-                gauss.mle(data,gamma1[i,], reg_lambda, reg_lambda2, reg_type,
+                gauss.mle(data,gamma1[i+offset,], reg_lambda, reg_lambda2, reg_type,
                           plot_process=plot)
             # - Update priors: 
             self.priors = gamma0.sum(axis=1)   # Sum probabilities of being in state i
@@ -859,7 +862,8 @@ class GMM:
 
 
     def init_time_based_from_np(self, npdata, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE, plot=False,
-                                drop_time=False, fix_first_component=False, fix_last_component=False):
+                                drop_time=False, fix_first_component=False, fix_last_component=False,
+                                fixed_components_n_steps=2):
         # Assuming that data is first manifold dimension
         t = npdata[:,0]
 
@@ -867,7 +871,7 @@ class GMM:
             npdata = npdata[:,1:]
 
         t_delta = t[1] - t[0]
-        fixed_component_width = 2 * t_delta
+        fixed_component_width = fixed_components_n_steps * t_delta
 
         t_min = t.min()
         t_max = t.max()
@@ -931,7 +935,8 @@ class GMM:
                    debug_borders=False, plot_cb=None, debug_multimodal=False,
                    em_kwargs=None, kmeans_kwargs=None,
                    fixed_component_from_last_step=False,
-                   fixed_component_from_first_step=False):
+                   fixed_component_from_first_step=False,
+                   fixed_component_n_steps=2):
 
         from scipy.ndimage import gaussian_filter1d
         from sklearn.cluster import DBSCAN
@@ -1042,9 +1047,9 @@ class GMM:
         borders = [0] + borders
 
         if fixed_component_from_first_step:
-            borders = [1] + borders
+            borders = [fixed_component_n_steps] + borders
         if fixed_component_from_last_step:
-            borders.append(n_time_steps - 2)
+            borders.append(n_time_steps - 1 - fixed_component_n_steps)
 
         borders.append(n_time_steps - 1)
 
@@ -1778,10 +1783,10 @@ class HMM(GMM):
         else:
             B, _ = self.obs_likelihood(x)
 
-        print(B)
-        print(self.init_priors)
+        # print(B)
+        # print(self.init_priors)
 
-        print(x.shape, B.shape)
+        # print(x.shape, B.shape)
 
         if not hasattr(self, '_alpha_tmp') or reset:
             self._alpha_tmp = self.init_priors * B[:, 0]
