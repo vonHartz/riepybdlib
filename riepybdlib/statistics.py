@@ -488,18 +488,21 @@ class Gaussian(object):
         # Function for covariance transport
         fR = lambda g,h: man.parallel_transport(np.eye(man.n_dimT), g, h).T
         
+        sigma_s = self.sigma
+        sigma_o = other.sigma
+
         # Decomposition of covariance:
         try:
-            lambda_s = np.linalg.inv(self.sigma)
+            lambda_s = np.linalg.inv(sigma_s)
         except np.linalg.LinAlgError:
             logger.warning("Singular matrix, adding diag constant", filter=False)
-            lambda_s = np.linalg.inv(self.sigma + np.eye(self.sigma.shape[0])*1e-20)
+            lambda_s = np.linalg.inv(sigma_s + np.eye(sigma_s.shape[0])*1e-20)
         try:
-            lambda_o = np.linalg.inv(other.sigma)
+            lambda_o = np.linalg.inv(sigma_o)
         except np.linalg.LinAlgError:
             logger.warning("Singular matrix, adding diag constant", filter=False)
-            lambda_o = np.linalg.inv(other.sigma + np.eye(other.sigma.shape[0])*1e-20)
-        
+            lambda_o = np.linalg.inv(sigma_o + np.eye(sigma_o.shape[0])*1e-20)
+       
         mu  = self.mu # Initial guess
         it=0; diff = 1
         while (diff > conv_thresh):
@@ -511,7 +514,7 @@ class Gaussian(object):
 
             # Compute new covariance:
             try:
-                sigma = np.linalg.inv( lambda_sn + lambda_on )
+                sigma = np.linalg.inv( lambda_sn + lambda_on)  # TODO: add regularization?
             except np.linalg.LinAlgError:
                 logger.warning("Singular matrix, adding diag constant", filter=False)
                 sigma = np.linalg.inv( lambda_sn + lambda_on + np.eye(lambda_sn.shape[0])*1e-20 )
@@ -522,7 +525,7 @@ class Gaussian(object):
 
             # update mu:
             delta = sigma.dot(d_self + d_other)
-            mu = Exp(delta+0e-4,mu)
+            mu = Exp(delta+0e-4,mu)  # TODO: Should this be 1e-4?
 
             # Handle convergence
             diff = sum(delta*delta)
