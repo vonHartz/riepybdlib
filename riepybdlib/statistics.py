@@ -1935,7 +1935,8 @@ class HMM(GMM):
     def em(self, demos, dep=None, table=None, dep_mask=None,
            left_to_right=False, nb_max_steps=40, loop=False, obs_fixed=False,
            trans_reg=None, mle_kwargs=None, finish_kwargs=None,
-           fix_last_component=False, fix_first_component=False):
+           fix_last_component=False, fix_first_component=False,
+           fixed_components_n_steps=2):
         """
 
         :param demos:
@@ -2007,6 +2008,8 @@ class HMM(GMM):
         if fix_first_component:
             gaussians = gaussians[1:]
 
+        offset = 1 if fix_first_component else 0
+
         for it in tqdm(range(nb_max_steps), desc='HMM EM'):
 
             for n, demo in enumerate(demos):
@@ -2023,7 +2026,7 @@ class HMM(GMM):
             # M-step
             if not obs_fixed:
                 for i,gauss in enumerate(gaussians):
-                    gauss.mle(data_rbd, gamma2[i+(1 if fix_first_component else 0)], **mle_kwargs)
+                    gauss.mle(data_rbd, gamma2[i+offset], **mle_kwargs)
 
                 if dep_mask is not None:
                     self.sigma *= dep_mask
@@ -2062,7 +2065,7 @@ class HMM(GMM):
                 if finish_kwargs is not None:
                     for i, gauss in enumerate(gaussians):
                         gauss._update_empirical_covariance(
-                            data_rbd, gamma2[i], **finish_kwargs)
+                            data_rbd, gamma2[i+offset], **finish_kwargs)
 
                 if dep_mask is not None:
                     self.sigma *= dep_mask
