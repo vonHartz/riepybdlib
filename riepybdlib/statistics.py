@@ -749,8 +749,7 @@ class GMM:
     # @logger.contextualize(filter=False)
     def fit_from_np(self, npdata, convthres=1e-5, maxsteps=100, minsteps=5, reg_lambda=1e-3, 
                     reg_lambda2=1e-3, reg_type= RegularizationType.SHRINKAGE,
-                    plot=False, fix_last_component=False, fix_first_component=False,
-                    fixed_components_n_steps=2):
+                    plot=False, fix_last_component=False, fix_first_component=False):
         '''Initialize trajectory GMM using a time-based approach'''
 
         data = self.manifold.np_to_manifold(npdata)
@@ -866,7 +865,7 @@ class GMM:
 
     def init_time_based_from_np(self, npdata, reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE, plot=False,
                                 drop_time=False, fix_first_component=False, fix_last_component=False,
-                                fixed_components_n_steps=2):
+                                fixed_first_component_n_steps=2, fixed_last_component_n_steps=2):
         # Assuming that data is first manifold dimension
         t = npdata[:,0]
 
@@ -874,13 +873,12 @@ class GMM:
             npdata = npdata[:,1:]
 
         t_delta = t[1] - t[0]
-        fixed_component_width = fixed_components_n_steps * t_delta
 
         t_min = t.min()
         t_max = t.max()
 
-        t_start = t_min + fixed_component_width if fix_first_component else t_min
-        t_stop = t_max - fixed_component_width if fix_last_component else t_max
+        t_start = t_min + (fixed_first_component_n_steps * t_delta) if fix_first_component else t_min
+        t_stop = t_max - (fixed_last_component_n_steps * t_delta) if fix_last_component else t_max
 
         n_dyn_components = self.n_components - int(fix_first_component) - int(fix_last_component)
 
@@ -1935,8 +1933,7 @@ class HMM(GMM):
     def em(self, demos, dep=None, table=None, dep_mask=None,
            left_to_right=False, nb_max_steps=40, loop=False, obs_fixed=False,
            trans_reg=None, mle_kwargs=None, finish_kwargs=None,
-           fix_last_component=False, fix_first_component=False,
-           fixed_components_n_steps=2):
+           fix_last_component=False, fix_first_component=False):
         """
 
         :param demos:
