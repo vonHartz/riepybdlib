@@ -2067,10 +2067,12 @@ class HMM(GMM):
                 if dep_mask is not None:
                     self.sigma *= dep_mask
 
-                return True
+                break
 
-        logger.warning("HMM EM did not converge")
-        return False
+        else:
+            logger.warning("HMM EM did not converge")
+
+        return gamma, LL[it]
 
     def score(self, demos):
         """
@@ -2128,3 +2130,8 @@ class HMM(GMM):
         other._init_priors = np.copy(self._init_priors)
 
         return other
+
+
+class HSMM(GMM):
+    def __init__(self, manifold, n_components, base=None):
+        raise NotImplementedError
