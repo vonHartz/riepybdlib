@@ -119,7 +119,7 @@ class Gaussian(object):
 
         return self.prob(data, log=log)
         
-    def prob(self,data, log=False):
+    def prob(self,data, log=False, data_on_tangent=False):
         '''Evaluate probability of sample
         data can either be a tuple or a list of tuples
         '''
@@ -136,7 +136,13 @@ class Gaussian(object):
         # Mahanalobis Distance:
 
         # Batch:
-        dist = self.manifold.log(data, self.mu)
+        if data_on_tangent:
+            dist = data
+        else:
+            dist = self.manifold.log(data, self.mu)
+
+        from lovely_numpy import lo
+        print(lo(dist))
 
         # Correct size:
         if dist.ndim==2:
@@ -626,14 +632,17 @@ class Gaussian(object):
         np.savetxt('{0}_mu.txt'.format(name),self.manifold.manifold_to_np(self.mu) )
         np.savetxt('{0}_sigma.txt'.format(name),self.sigma)
 
-    def sample(self, n_samples=1):
+    def sample(self, n_samples=1, on_tangent=False):
         A = np.linalg.cholesky(self.sigma)
         if n_samples == 1:
             samp = A.dot(np.random.randn(self.manifold.n_dimT))
-            return self.manifold.exp(samp,self.mu)
         else:
-            samp = A.dot(np.random.randn(self.manifold.n_dimT,n_samples))
-            return [self.manifold.exp(s,self.mu) for s in samp.T]
+            samp = (A.dot(np.random.randn(self.manifold.n_dimT,n_samples))).T
+
+        if on_tangent:
+            return samp
+        else:
+            return self.manifold.exp(samp,self.mu)
 
     @staticmethod
     def load(name,manifold):
