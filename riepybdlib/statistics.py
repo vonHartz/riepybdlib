@@ -626,10 +626,14 @@ class Gaussian(object):
         np.savetxt('{0}_mu.txt'.format(name),self.manifold.manifold_to_np(self.mu) )
         np.savetxt('{0}_sigma.txt'.format(name),self.sigma)
 
-    def sample(self):
+    def sample(self, n_samples=1):
         A = np.linalg.cholesky(self.sigma)
-        samp = A.dot(np.random.randn(self.manifold.n_dimT))
-        return self.manifold.exp(samp,self.mu)
+        if n_samples == 1:
+            samp = A.dot(np.random.randn(self.manifold.n_dimT))
+            return self.manifold.exp(samp,self.mu)
+        else:
+            samp = A.dot(np.random.randn(self.manifold.n_dimT,n_samples))
+            return [self.manifold.exp(s,self.mu) for s in samp.T]
 
     @staticmethod
     def load(name,manifold):
