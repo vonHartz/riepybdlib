@@ -519,17 +519,14 @@ def s1_exp(x, g, reg=1e-10):
     if type(x) is list:
         x = np.vstack(x)
 
-    g_tan = s1_log_e(g, reg)
-    x_tan = s1_log_e(x, reg)
-
-    return x_tan + g_tan
+    return s1_exp_e(x + g)
 
 def s1_log(x, g, reg=1e-10):
     if type(x) is list:
         x = np.vstack(x)
 
-    g_tan = s2_log_e(g, reg)
-    x_tan = s2_log_e(x, reg)
+    g_tan = s1_log_e(g, reg)
+    x_tan = s1_log_e(x, reg)
 
     return x_tan - g_tan
 
