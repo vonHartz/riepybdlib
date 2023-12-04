@@ -497,6 +497,41 @@ def s2_parallel_transport(Xg, g, h, t=1):
     return Xg.dot(R.T)    
     
 
+# S1
+s1_id = np.array([0,1])
+
+def s1_exp_e(g_tan, reg=1e-6):
+    return np.stack(
+        # (np.cos(g_tan), np.sin(g_tan)),
+        (np.sin(g_tan), np.cos(g_tan)),
+        axis=-1
+    )
+
+def s1_log_e(g, reg = 1e-10):
+    assert g.shape[-1] == 2
+    return np.arctan(
+        # g[...,1]/g[...,0]
+        g[..., 0]/g[..., 1]
+
+    )
+
+def s1_exp(x, g, reg=1e-10):
+    if type(x) is list:
+        x = np.vstack(x)
+
+    g_tan = s1_log_e(g, reg)
+    x_tan = s1_log_e(x, reg)
+
+    return x_tan + g_tan
+
+def s1_log(x, g, reg=1e-10):
+    if type(x) is list:
+        x = np.vstack(x)
+
+    g_tan = s2_log_e(g, reg)
+    x_tan = s2_log_e(x, reg)
+
+    return x_tan - g_tan
 
 
 # General Linear Group:
