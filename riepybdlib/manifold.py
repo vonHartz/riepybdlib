@@ -517,7 +517,7 @@ def get_s2_manifold(name='S2', fnptoman=None, fmantonp=None):
                  )
 
 def get_s1_manifold(name='S1', fnptoman=None, fmantonp=None):
-    return Manifold(n_dimM=1, n_dimT=1, 
+    return Manifold(n_dimM=2, n_dimT=1, 
                  exp_e=s1_exp_e, log_e=s1_log_e, id_elem=s1_id, 
                  name=name, 
                  f_nptoman= fnptoman,

@@ -509,17 +509,22 @@ def s1_exp_e(g_tan, reg=1e-6):
 
 def s1_log_e(g, reg = 1e-10):
     assert g.shape[-1] == 2
-    return np.arctan(
+    tan = np.arctan(
         # g[...,1]/g[...,0]
         g[..., 0]/g[..., 1]
-
     )
+
+    return np.expand_dims(tan, axis=-1)
 
 def s1_exp(x, g, reg=1e-10):
     if type(x) is list:
         x = np.vstack(x)
 
-    return s1_exp_e(x + g)
+    x = x.squeeze(1)
+
+    g_tan = s1_log_e(g, reg)
+
+    return s1_exp_e(x + g_tan)
 
 def s1_log(x, g, reg=1e-10):
     if type(x) is list:
