@@ -611,6 +611,10 @@ class Gaussian(object):
 
         sigma = self.sigma
         if idx is not None:
+            if mu.shape[-1] != sigma.shape[-1]:
+                raise ValueError(
+                    "Mu and sigma have different dimensions. Can't index savely."
+                     f"Mu: {mu.shape}, sigma: {sigma.shape}")
             mu = mu[ [*idx] ]
             sigma = sigma[ [*idx], :][:, [*idx] ]
 
