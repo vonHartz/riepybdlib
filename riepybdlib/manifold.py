@@ -174,6 +174,9 @@ class Manifold(object):
             self.name = name
 
         self.n_manifolds = len(self.__manlist)
+
+    def get_submanifolds(self):
+        return self.__manlist
         
     def __mul__(self,other):
         '''Implementation of the Cartesian products of Manifolds'''
