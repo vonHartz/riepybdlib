@@ -809,7 +809,13 @@ class GMM:
 
         return lik, avg_loglik
 
-    def bci_from_lik(self, lik):
+    def aic_from_lik(self, lik):
+        # lik is the likelihood per state, weighted by the priors
+        # so aggregate over states
+        return -2 * np.log(lik.sum(0)+1e-200).mean() * lik.shape[1] + \
+            2 * self._n_parameters
+
+    def bic_from_lik(self, lik):
         # lik is the likelihood per state, weighted by the priors
         # so aggregate over states
         return -2 * np.log(lik.sum(0)+1e-200).mean() * lik.shape[1] + \
@@ -1022,7 +1028,7 @@ class GMM:
                     plot_cb(plot_traj=True, plot_gaussians=True,
                             model=candidate)
                 candidate_gmms.append(candidate)
-                bci_scores.append(candidate.bci_from_lik(b))
+                bci_scores.append(candidate.bic_from_lik(b))
 
             inc_idx = np.argmin(bci_scores)
             incumbent = candidate_gmms[inc_idx]
