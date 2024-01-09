@@ -519,13 +519,26 @@ def get_s2_manifold(name='S2', fnptoman=None, fmantonp=None):
                  exp=s2_exp, log=s2_log# Add optional non-base maps that to provide more efficient computation
                  )
 
+# Variant of S2 which accepts a quaternion as input for the action function, and
+# by extension for the parallel transport function
+def get_s2hat_manifold(name='S2hat', fnptoman=None, fmantonp=None):
+    return Manifold(n_dimM=3, n_dimT=2, 
+                 exp_e=s2_exp_e, log_e=s2_log_e, id_elem=s2_id, 
+                 name=name, 
+                 f_nptoman= fnptoman,
+                 f_mantonp= fmantonp,
+                 f_action=s2_quat_action,
+                 f_parallel_transport=s2_parallel_transport,
+                 exp=s2_exp, log=s2_log# Add optional non-base maps that to provide more efficient computation
+                 )
+
 def get_s1_manifold(name='S1', fnptoman=None, fmantonp=None):
     return Manifold(n_dimM=2, n_dimT=1, 
                  exp_e=s1_exp_e, log_e=s1_log_e, id_elem=s1_id, 
                  name=name, 
                  f_nptoman= fnptoman,
                  f_mantonp= fmantonp,
-                 f_action=None,
+                 f_action=dummy_action,
                  f_parallel_transport=None,
                  exp=s1_exp, log=s1_log# Add optional non-base maps that to provide more efficient computation
                  )

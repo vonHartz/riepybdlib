@@ -361,6 +361,30 @@ def s2_action(x, g, h):
 
     return x.dot(A.T)
 
+def s2_quat_action(x, g, h):
+    # allows h to be a quaternion instead of an element of S2
+    if not type(h) is ar.Quaternion:
+        raise ValueError(
+            "h must be a quaternion. Or did you mean to use  vanilla S2?"
+            )
+    
+    # Convert possible list into nparray
+    if type(x) is list:
+        x = np.vstack(x)
+
+    # Get rotation of origin e to g
+    ax, angle = ar.get_axisangle(g)
+    Reg = ar.R_from_axis_angle(ax, angle)
+
+    # Get rotation of origin e to h
+    Reh = h.R()
+
+    # Creat rotation that moves x from g to the origin e,
+    # and then from e to h:
+    A = Reh.dot(Reg.T)
+
+    return x.dot(A.T)
+
 def s2_exp_e(g_tan, reg=1e-6):
     if g_tan.ndim ==2:
         # Batch operation:
@@ -499,6 +523,14 @@ def s2_parallel_transport(Xg, g, h, t=1):
 
 # S1
 s1_id = np.array([0,1])
+
+
+def dummy_action(x, g, h):
+    # Only using S1 as global dim, so no action needed. But needed for model
+    # transformation. So just return x.
+    assert g == s1_id
+    assert h == np.array([0])
+    return x
 
 def s1_exp_e(g_tan, reg=1e-6):
     return np.stack(

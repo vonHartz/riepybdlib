@@ -1261,6 +1261,8 @@ class GMM:
         # Perform action:
         mulist = man.swapto_tupleoflist(mulist)
         mus_new = man.action(mulist, self.base, h)
+        # TODO: with the quat_action, the base is now set to a quaternion, ie
+        # not in S2 anymore -> fix!
         self.base = h # Set new base for GMM
 
         mus_new = man.swapto_listoftuple(mus_new)
@@ -1277,9 +1279,6 @@ class GMM:
     def homogeneous_trans(self, A, b):
         model = self.copy()
         model.tangent_action(A)  # Apply A in tangent space of origin.
-        # TODO: is using b as argument correct?
-        # mu: should be mapped from e to e+b?
-        # Sigma: ???
         model.parallel_transport(b)   # Move origin to new mean.
 
         return model
