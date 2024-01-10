@@ -49,6 +49,8 @@ from copy import deepcopy
 
 from enum import Enum
 
+from riepybdlib.mappings import s2_quat_action
+
 realmin = pbd.functions.realmin
 realmax = pbd.functions.realmax
 
@@ -1250,7 +1252,6 @@ class GMM:
 
     def parallel_transport(self, h):
         ''' Parallel transport GMM from current base to h'''
-        
         man = self.gaussians[0].manifold
         # Compute new mu's
         # Collect mu's and put them in proper data structure
@@ -1260,10 +1261,21 @@ class GMM:
 
         # Perform action:
         mulist = man.swapto_tupleoflist(mulist)
+        print("mu old: ", mulist[3])
+        print("base old: ", self.base[3])
+        print("h: ", h[3])
         mus_new = man.action(mulist, self.base, h)
-        # TODO: with the quat_action, the base is now set to a quaternion, ie
-        # not in S2 anymore -> fix!
-        self.base = h # Set new base for GMM
+        print("mu new: ", mus_new[3])
+        print(self.manifold.name)
+        # NOTE: usually the base is set to h from the id element.
+        # However, for the S2hat with the quaternion-action, this cannot be done,
+        # as quats are not in S2.
+        # So with the quat action, set the base to h applied to the id element
+        print(self.base)
+        new_base = self.manifold.patch_action_element(self.base, h)
+        print("base new: ", new_base[3])
+        self.base = new_base
+        print(self.base)
 
         mus_new = man.swapto_listoftuple(mus_new)
         for i,_ in enumerate(self.gaussians):

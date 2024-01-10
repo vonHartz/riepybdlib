@@ -385,6 +385,9 @@ def s2_quat_action(x, g, h):
 
     return x.dot(A.T)
 
+def s2_patch_action_element(self, g, h):
+    return s2_quat_action(self.id_elem, g, h)
+
 def s2_exp_e(g_tan, reg=1e-6):
     if g_tan.ndim ==2:
         # Batch operation:
@@ -528,8 +531,8 @@ s1_id = np.array([0,1])
 def dummy_action(x, g, h):
     # Only using S1 as global dim, so no action needed. But needed for model
     # transformation. So just return x.
-    assert g == s1_id
-    assert h == np.array([0])
+    assert np.equal(g, s1_id).all()
+    assert np.equal(h, np.array([0])).all()
     return x
 
 def s1_exp_e(g_tan, reg=1e-6):
