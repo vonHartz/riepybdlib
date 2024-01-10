@@ -561,7 +561,7 @@ def get_s1_manifold(name='S1', fnptoman=None, fmantonp=None):
                  f_nptoman= fnptoman,
                  f_mantonp= fmantonp,
                  f_action=dummy_action,
-                 f_parallel_transport=None,
+                 f_parallel_transport=dummy_transport,
                  exp=s1_exp, log=s1_log# Add optional non-base maps that to provide more efficient computation
                  )
 

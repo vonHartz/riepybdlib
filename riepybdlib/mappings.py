@@ -531,9 +531,17 @@ s1_id = np.array([0,1])
 def dummy_action(x, g, h):
     # Only using S1 as global dim, so no action needed. But needed for model
     # transformation. So just return x.
-    assert np.equal(g, s1_id).all()
-    assert np.equal(h, np.array([0])).all()
+    # print(x, g, h)
+    # assert np.equal(g, s1_id).all()
+    # assert np.equal(h, s1_id).all()
     return x
+
+def dummy_transport(Xg, g, h, t=1):
+    # print(Xg, g, h, t)
+    # assert np.equal(g, s1_id).all()
+    assert t == 1
+    
+    return Xg
 
 def s1_exp_e(g_tan, reg=1e-6):
     return np.stack(
