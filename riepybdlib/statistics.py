@@ -1262,12 +1262,7 @@ class GMM:
         # Perform action:
         mulist = man.swapto_tupleoflist(mulist)
         mus_new = man.action(mulist, self.base, h)
-        # NOTE: usually the base is set to h (from the id element).
-        # However, for the S2hat with the quaternion-action, this cannot be done,
-        # as quats are not in S2.
-        # So with the quat action, set the base to h applied to the id element
-        new_base = self.manifold.patch_action_element(self.base, h)
-        self.base = new_base
+        self.base = h
 
         mus_new = man.swapto_listoftuple(mus_new)
         for i,_ in enumerate(self.gaussians):
