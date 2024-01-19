@@ -1953,6 +1953,18 @@ class HMM(GMM):
 
         self.init_priors = np.array([1.] + [0. for i in range(self.nb_states-1)])
 
+    def get_dep_mask(self, deps):
+        mask = np.eye(self.nb_dim)
+
+        for dep in deps:
+            if isinstance(dep, slice):
+                mask[dep, dep] = 1.
+            elif isinstance(dep, list):
+                dGrid = np.ix_(dep, dep)
+                mask[dGrid] = 1.
+
+        return mask
+
     def em(self, demos, dep=None, table=None, dep_mask=None,
            left_to_right=False, nb_max_steps=40, loop=False, obs_fixed=False,
            trans_reg=None, mle_kwargs=None, finish_kwargs=None,
