@@ -431,7 +431,11 @@ class Gaussian(object):
         mu_o = gtmp.margin(i_out).mu
 
         # Compute lambda and split:
-        Lambda    = np.linalg.inv(gtmp.sigma)
+        try:
+            Lambda    = np.linalg.inv(gtmp.sigma)
+        except np.linalg.LinAlgError:
+            logger.warning("Singular matrix, adding diag constant", filter=False)
+            Lambda = np.linalg.inv(gtmp.sigma + np.eye(gtmp.sigma.shape[0])*1e-20)
 
         ran_in  = man.get_tangent_indices(i_in)
         ran_out = man.get_tangent_indices(i_out)
