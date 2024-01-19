@@ -2047,6 +2047,8 @@ class HMM(GMM):
             for n, demo in enumerate(demos):
                 s[n]['alpha'], s[n]['beta'], s[n]['gamma'], s[n]['zeta'], s[n]['c'] = HMM.compute_messages(self, demo, dep, table)
 
+                # print(s[n]['alpha'], s[n]['beta'], s[n]['gamma'], s[n]['zeta'], s[n]['c'])
+
             # concatenate intermediary vars
             gamma = np.hstack([s[i]['gamma'] for i in range(nb_samples)])
             zeta = np.dstack([s[i]['zeta'] for i in range(nb_samples)])
@@ -2078,8 +2080,12 @@ class HMM(GMM):
                 self.Trans /= np.sum(self.Trans, axis=1, keepdims=True)
 
             if left_to_right or loop:
+                # print(mask)
+                # print(self.Trans)
                 self.Trans *= mask
+                # print(self.Trans)
                 self.Trans /= np.sum(self.Trans, axis=1, keepdims=True)
+                # print(self.Trans)
 
             # print self.Trans
             # Compute avarage log-likelihood using alpha scaling factors
@@ -2170,3 +2176,96 @@ class HMM(GMM):
 class HSMM(GMM):
     def __init__(self, manifold, n_components, base=None):
         raise NotImplementedError
+    
+class HMMCascade():
+    def __init__(
+            self,
+            segment_models: tuple[HMM, ...],
+            transition_probs: tuple[float, ...],
+        ):
+        self.segment_models = segment_models
+        self.transition_probs = transition_probs
+
+        seg_components = [m.n_components for m in self.segment_models]
+        segment_start_idcs = np.cumsum(seg_components)[:-1]
+
+        self.n_components = sum(seg_components)
+
+        self.Trans = block_diag(*[m.Trans for m in segment_models])
+        for i, p in zip(segment_start_idcs, transition_probs):
+            self.Trans[i-1, i] = p
+            self.Trans[i-1] = self.Trans[i-1] / sum(self.Trans[i-1])
+
+        init_priors = list(m.init_priors for m in self.segment_models)
+        logger.warning("Setting init priors of later segments to zero.")
+        for i, p in enumerate(init_priors[1:]):
+            init_priors[i+1] = np.zeros_like(p)
+
+        self.init_priors = np.concatenate(init_priors)
+
+    def online_forward_message(self, x_views, marginal=None, reset=False):
+        """
+        x, marginal now need to be given per segment model.
+        """
+        if (not hasattr(self, '_marginal_tmp') or reset) and marginal is not None:
+            self._marginal_tmp = tuple(
+                    m.margin(i) for m, i in zip(self.segment_models, marginal)
+                )
+
+        if marginal is not None:
+            B, _ = tuple(
+                m.obs_likelihood(x) for m, x in zip(self._marginal_tmp, x_views)
+            )
+        else:
+            B, _ = tuple(
+                m.obs_likelihood(x) for m, x in zip(self.segment_models, x_views)
+            )
+
+        B = np.concatenate(B)
+
+        if not hasattr(self, '_alpha_tmp') or reset:
+            self._alpha_tmp = self.init_priors * B[:, 0]
+        else:
+            self._alpha_tmp = self._alpha_tmp.dot(self.Trans) * B[:, 0]
+
+        self._alpha_tmp /= np.sum(self._alpha_tmp, keepdims=True)
+
+        return self._alpha_tmp
+
+
+    def gmr_from_np(self, demo_views, i_in, i_out, initial_obs=False):
+        """
+        demo, i_in and i_out now need to be given per segment model.
+        """
+        m_out  = tuple(
+            m.gaussians[0].manifold.get_submanifold(i)
+            for m, i in zip(self.segment_models, i_out)
+        )
+        m_in = tuple(
+            m.gaussians[0].manifold.get_submanifold(i)
+            for m, i in zip(self.segment_models, i_in)
+        )
+
+        data_in = tuple(
+            m.manifold.np_to_manifold(d, dim=i)
+            for m, d, i in zip(self.segment_models, demo_views, i_in)
+        )
+
+        # Check swap input data to list:
+        ldata_in = tuple(
+            m.swapto_listoftuple(d) for m, d in zip(m_in, data_in)
+        )
+        n_data = len(ldata_in[0])
+            
+        # Compute weights:
+        if n_data == 1:
+            h = self.online_forward_message(demo_views, marginal=i_in,
+                                            reset=initial_obs)
+            h = np.expand_dims(h, 0)
+        else:
+            h = np.zeros((n_data, self.n_components))
+            for step, point in enumerate(ldata_in):
+                h[step, :] = self.online_forward_message(point, marginal=i_in,
+                                                         reset=initial_obs)
+                
+        raise NotImplementedError("Finish GMR!")
