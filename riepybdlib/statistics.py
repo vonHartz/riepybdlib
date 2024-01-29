@@ -1363,9 +1363,8 @@ class GMM:
             
             # compute Mu of GMR:
             mu_gmr = deepcopy(gc_list[0].mu)
-            diff = 1.0; it = 0
-            
-            diff == 1
+            diff = 1.0
+            it = 0
 
             while (diff > 1e-5):
                 delta = h[n,:].dot( m_out.log(muc_list, mu_gmr) )
@@ -2185,6 +2184,8 @@ class HMMCascade():
         self.segment_models = segment_models
         self.transition_probs = transition_probs
 
+        self.manifold = segment_models[0].manifold
+
         seg_components = [m.n_components for m in self.segment_models]
         segment_start_idcs = np.cumsum(seg_components)[:-1]
 
@@ -2202,25 +2203,19 @@ class HMMCascade():
 
         self.init_priors = np.concatenate(init_priors)
 
-        # self.gaussians = tuple(chain(*(m.gaussians for m in self.segment_models)))
+        self.gaussians = tuple(chain(*(m.gaussians for m in self.segment_models)))
 
-    def online_forward_message(self, x_views, marginal=None, reset=False):
-        """
-        x, marginal now need to be given per segment model.
-        """
+    def margin(self, i_in) -> tuple[GMM, ...]:
+        return tuple(m.margin(i_in) for m in self.segment_models)
+
+    def online_forward_message(self, x, marginal=None, reset=False):
         if (not hasattr(self, '_marginal_tmp') or reset) and marginal is not None:
-            self._marginal_tmp = tuple(
-                    m.margin(i) for m, i in zip(self.segment_models, marginal)
-                )
+            self._marginal_tmp = self.margin(marginal)
 
         if marginal is not None:
-            B, _ = tuple(
-                m.obs_likelihood(x) for m, x in zip(self._marginal_tmp, x_views)
-            )
+            B = tuple(m.obs_likelihood(x)[0] for m in self._marginal_tmp)
         else:
-            B, _ = tuple(
-                m.obs_likelihood(x) for m, x in zip(self.segment_models, x_views)
-            )
+            B = tuple(m.obs_likelihood(x)[0] for m in self.segment_models)
 
         B = np.concatenate(B)
 
@@ -2234,104 +2229,8 @@ class HMMCascade():
         return self._alpha_tmp
 
 
-    def gmr_from_np(self, demo_views, i_in, i_out, initial_obs=False):
-        """
-        demo, i_in and i_out now need to be given per segment model.
-        """
-        m_out  = tuple(
-            m.gaussians[0].manifold.get_submanifold(i)
-            for m, i in zip(self.segment_models, i_out)
-        )
-        m_in = tuple(
-            m.gaussians[0].manifold.get_submanifold(i)
-            for m, i in zip(self.segment_models, i_in)
-        )
-
-        data_in = tuple(
-            m.manifold.np_to_manifold(d, dim=i)
-            for m, d, i in zip(self.segment_models, demo_views, i_in)
-        )
-
-        # Check swap input data to list:
-        ldata_in = tuple(
-            m.swapto_listoftuple(d) for m, d in zip(m_in, data_in)
-        )
-        n_data = len(ldata_in[0])
-            
-        # Compute weights:
-        if n_data == 1:
-            h = self.online_forward_message(demo_views, marginal=i_in,
-                                            reset=initial_obs)
-            h = np.expand_dims(h, 0)
-        else:
-            h = np.zeros((n_data, self.n_components))
-            for step, point in enumerate(ldata_in):
-                h[step, :] = self.online_forward_message(point, marginal=i_in,
-                                                         reset=initial_obs)
-                
-        gmr_list = []
-        for n, point_views in enumerate(zip(*ldata_in)):
-            # Compute conditioned elements:
-            gc_list = []
-            muc_list = []
-            # iterate over segment models and take respective idcs and frame views
-            # NOTE: assumes sequentiel models
-            # TODO: or should only take common frames for all segment models?
-            for m, (model, i, o) in enumerate(zip(self.segment_models, i_in, i_out)):
-                gc_list.append([])
-                muc_list.append([])
-                for g, gauss in enumerate(model.gaussians):
-                    if h[n, g]>1e-5:
-                        gc_list[-1].append(gauss.condition(point_views[m], i_in=i, i_out=o))
-                    else:
-                        # No signnificant weight, just store the margin 
-                        gc_list[-1].append(gauss.margin(o))
-                    # Store the means in np array:
-                    muc_list[-1].append(gc_list[-1][-1].mu)
-
-            # Convert to tuple of  lists, such that we can apply log and exp to them
-            muc_list = tuple(m.swapto_tupleoflist(l) for m, l in zip(m_out, muc_list))
-
-            # compute Mu of GMR:
-            mu_gmr = deepcopy(gc_list[0][0].mu)
-            diff = 1.0
-            it = 0
-
-            # TODO: Problem. The result of GMR is a Gaussian created from a weighted
-            # combintation of the component Gaussians.
-            # Different segment models have different frame views, ie the segment
-            # Gaussians are not defined on the same manifold. While we can still compute
-            # their weights naively using the different frame views, how can we compute
-            # their sum? That only works if we use the same frames.
-
-            while (diff > 1e-5):
-                delta = h[n,:].dot(
-                        np.concatenate(
-                            tuple(o.log(l, mu)
-                                  for o, l, mu in zip(m_out, muc_list, mu_gmr))
-                        )
-                    )
-                mu_gmr = m_out.exp(delta, mu_gmr)
-                
-                # Compute update difference
-                diff = (delta*delta).sum()
-                
-                if it>50:
-                    logger.warning('GMR did not converge in {0} iterations.'.format(n))
-                    break;
-                it+=1
-                    
-             # Compute covariance: 
-            sigma_gmr = np.zeros( (m_out.n_dimT, m_out.n_dimT))
-            for i in range(self.n_components):
-                R = m_out.parallel_transport(np.eye(m_out.n_dimT), 
-                                            gc_list[i].mu, mu_gmr).T
-
-                dtmp = np.zeros(m_out.n_dimT)[:,None] #m_out.log(gc_list[i].mu, mu_gmr)[:,None] #
-                sigma_gmr += h[n,i]*( R.dot(gc_list[i].sigma.dot(R.T))
-                                     + dtmp.dot(dtmp.T) 
-                                    )           
-
-            gmr_list.append( Gaussian(m_out, mu_gmr, sigma_gmr))
-            
-        return gmr_list
+    def gmr_from_np(self, demo, i_in, i_out, initial_obs=False):
+        return HMM.gmr_from_np(self, demo, i_in, i_out, initial_obs)
+    
+    def np_to_manifold_to_np(self, npdata_in, i_in=None, base=None):
+        return HMM.np_to_manifold_to_np(self, npdata_in, i_in, base)
