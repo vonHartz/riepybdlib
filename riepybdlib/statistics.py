@@ -2205,6 +2205,11 @@ class HMMCascade():
 
         self.gaussians = tuple(chain(*(m.gaussians for m in self.segment_models)))
 
+        self.segment_start_idcs = segment_start_idcs
+
+        self.gauss_segment_idcs = np.array(tuple(chain(*(
+            [i] * m.n_components for i, m in enumerate(self.segment_models)))))
+
     def margin(self, i_in) -> tuple[GMM, ...]:
         return tuple(m.margin(i_in) for m in self.segment_models)
 
