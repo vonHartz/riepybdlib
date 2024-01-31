@@ -2175,21 +2175,66 @@ class HSMM(GMM):
     def __init__(self, manifold, n_components, base=None):
         raise NotImplementedError
     
-class HMMCascade():
+
+class ModelList():
+    """
+    For plotting multiple marginals as if they were one.
+    """
+    def __init__(self, segment_models: tuple[GMM, ...]) -> None:
+        self.segment_models = segment_models
+
+        self._seg_components = [m.n_components for m in self.segment_models]
+
+        self.n_components = sum(self._seg_components)
+
+    nb_states = Alias("n_components")
+
+    def margin(self, i_in) -> tuple[GMM, ...]:
+        return tuple(m.margin(i_in) for m in self.segment_models)
+
+    def get_mu_sigma(self, base=None, idx=None, stack=False, mu_on_tangent=True,
+                     as_np=False, raw_tuple=False):
+        comp = [s.get_mu_sigma(base=base, idx=idx, mu_on_tangent=mu_on_tangent,
+                               as_np=as_np, raw_tuple=raw_tuple)
+                for s in self.segment_models]
+        
+        mu = [c[0] for c in comp]
+        sigma = [c[1] for c in comp]
+
+        if stack:
+            assert as_np
+            mu = np.concatenate(mu)
+            sigma = np.concatenate(sigma)
+        else:
+            mu = tuple(chain(*mu))
+            sigma = tuple(chain(*sigma))
+
+        return mu, sigma
+
+    @property
+    def mu(self):
+        mu, _ = self.get_mu_sigma(stack=True, as_np=True)
+        return mu
+
+    @property
+    def sigma(self):
+        _, sigma = self.get_mu_sigma(stack=True, as_np=True)
+        return sigma
+
+class HMMCascade(ModelList):
     def __init__(
             self,
             segment_models: tuple[HMM, ...],
             transition_probs: tuple[float, ...],
-        ):
-        self.segment_models = segment_models
+        ) -> None:
+
+        super().__init__(segment_models)
+
         self.transition_probs = transition_probs
 
         self.manifold = segment_models[0].manifold
 
-        seg_components = [m.n_components for m in self.segment_models]
-        segment_start_idcs = np.cumsum(seg_components)[:-1]
-
-        self.n_components = sum(seg_components)
+        segment_start_idcs = np.cumsum(self._seg_components)[:-1]
 
         self.Trans = block_diag(*[m.Trans for m in segment_models])
         for i, p in zip(segment_start_idcs, transition_probs):
@@ -2209,10 +2254,7 @@ class HMMCascade():
 
         self.gauss_segment_idcs = np.array(tuple(chain(*(
             [i] * m.n_components for i, m in enumerate(self.segment_models)))))
-
-    def margin(self, i_in) -> tuple[GMM, ...]:
-        return tuple(m.margin(i_in) for m in self.segment_models)
-
+           
     def online_forward_message(self, x, marginal=None, reset=False):
         if (not hasattr(self, '_marginal_tmp') or reset) and marginal is not None:
             self._marginal_tmp = self.margin(marginal)
