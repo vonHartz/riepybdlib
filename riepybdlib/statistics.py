@@ -384,10 +384,6 @@ class Gaussian(object):
         elif reg_type is RegularizationType.DIAGONAL:
             return sigma + reg_lambda*np.eye(len(sigma))
         elif reg_type is RegularizationType.COMBINED:
-            # print(np.eye(len(sigma)).shape, reg_lambda2.shape)
-            # logger.warning("dbg extra variance for gripper hacked in here.", filter=False)
-            # reg_lambda2 = np.ones(sigma.shape[0]) * reg_lambda2
-            # reg_lambda2[-1] = 1e-1 
             return reg_lambda*np.diag(np.diag(sigma)) + (1-reg_lambda)*sigma + reg_lambda2*np.eye(len(sigma))
         elif reg_type is RegularizationType.DIAGONAL_ONLY:
             return sigma * np.eye(len(sigma))
@@ -1868,8 +1864,6 @@ class HMM(GMM):
         for t in range(sample_size - 2, -1, -1):
             beta[:, t] = np.dot(self.Trans, beta[:, t + 1] * B[:, t + 1])
             # catch NaNs caused by overflow
-            # TODO: what to put in here? used realmax before.
-            # TODO: look up definition of beta.
             beta[:, t] = np.where(np.isnan(beta[:, t]), 1, beta[:, t])
             beta[:, t] = np.minimum(beta[:, t] * c[t], 1)
 
@@ -2061,7 +2055,6 @@ class HMM(GMM):
         offset = 1 if fix_first_component else 0
 
         for it in tqdm(range(nb_max_steps), desc='HMM EM'):
-            print(self.Trans)
 
             for n, demo in enumerate(demos):
                 s[n]['alpha'], s[n]['beta'], s[n]['gamma'], s[n]['zeta'], s[n]['c'] = HMM.compute_messages(self, demo, dep, table)
