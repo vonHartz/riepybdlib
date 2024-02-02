@@ -2239,8 +2239,14 @@ class HMMCascade(ModelList):
     def __init__(
             self,
             segment_models: tuple[HMM, ...],
-            transition_probs: tuple[float, ...],
+            transition_probs: tuple[np.ndarray, ...],
         ) -> None:
+
+        for seg_model in segment_models[1:]:
+            assert seg_model.manifold.name == segment_models[0].manifold.name, (
+                "HMM Cascade only defined for HMMs with same manifold. Forgot to"
+                " caculate joint model first? Or to marginalize to common frames?"
+            )
 
         super().__init__(segment_models)
 
@@ -2248,12 +2254,25 @@ class HMMCascade(ModelList):
 
         self.manifold = segment_models[0].manifold
 
-        segment_start_idcs = np.cumsum(self._seg_components)[:-1]
+        segment_start_idcs = np.cumsum(self._seg_components)
 
         self.Trans = block_diag(*[m.Trans for m in segment_models])
-        for i, p in zip(segment_start_idcs, transition_probs):
-            self.Trans[i-1, i] = p
-            self.Trans[i-1] = self.Trans[i-1] / sum(self.Trans[i-1])
+
+        if transition_probs[0].shape == (1, 1):
+            # old format: assuming sequential models
+            for i, p in zip(segment_start_idcs[:-1], transition_probs):
+                self.Trans[i-1, i] = p
+                self.Trans[i-1] = self.Trans[i-1] / sum(self.Trans[i-1])
+        else:
+            segment_start_idcs = np.concatenate((np.array([0]), segment_start_idcs))
+            for i, matrix in enumerate(transition_probs):
+                c = segment_start_idcs[i]
+                d = segment_start_idcs[i+1]
+                r = segment_start_idcs[i+2]
+                self.Trans[c:d, d:r] = matrix
+
+            for i in range(self.Trans.shape[0]):
+                self.Trans[i] = self.Trans[i] / sum(self.Trans[i])
 
         init_priors = list(m.init_priors for m in self.segment_models)
         logger.warning("Setting init priors of later segments to zero.")
