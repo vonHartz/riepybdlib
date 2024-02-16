@@ -58,6 +58,7 @@ realmax = pbd.functions.realmax
 def multiply_iterable(l):
     return reduce(lambda x, y: x*y, l)
 
+
 class RegularizationType(Enum):
     NONE      = None
     SHRINKAGE = 1
@@ -68,6 +69,24 @@ class RegularizationType(Enum):
     # NOTE: there's also spherical, which is an diagonal scaled by a constant
     # for all dimensions. Ie. like diagonal, but with a single value.
     # Didn't see a reasoon to implement this, as it is very restrictive.
+
+
+def regularize_covariance(sigma, reg_lambda=1e-3, reg_lambda2=1e-3,
+                            reg_type=RegularizationType.SHRINKAGE):
+    if reg_type is RegularizationType.SHRINKAGE:
+        return reg_lambda*np.diag(np.diag(sigma)) + (1-reg_lambda)*sigma
+    elif reg_type is RegularizationType.DIAGONAL:
+        return sigma + reg_lambda*np.eye(len(sigma))
+    elif reg_type is RegularizationType.COMBINED:
+        return reg_lambda*np.diag(np.diag(sigma)) + (1-reg_lambda)*sigma + reg_lambda2*np.eye(len(sigma))
+    elif reg_type is RegularizationType.DIAGONAL_ONLY:
+        return sigma * np.eye(len(sigma))
+    elif reg_type is RegularizationType.ADD_CONSTANT:
+        return sigma + reg_lambda
+    elif reg_type is RegularizationType.NONE or reg_type is None:
+        return sigma
+    else:
+        raise ValueError('Unknown regularization type for covariance regularization')
 
 colors = tuple(('tab:red', 'tab:green', 'tab:blue'))
 labels = ['x', 'y', 'z']
@@ -116,6 +135,10 @@ class Gaussian(object):
             raise RuntimeError('Dimensions of sigma do not match Manifold')
         else:
             self.sigma = sigma
+
+    @property
+    def precision(self):
+        return np.linalg.inv(self.sigma)
 
     def prob_from_np(self, npdata, log=False):
         data = self.manifold.np_to_manifold(npdata)
@@ -378,22 +401,9 @@ class Gaussian(object):
         #for i,val in enumerate(x):
         #    tmp = self.manifold.log(self.mu, val)[:,None]
         #    sigma += h[i]*tmp.dot(tmp.T)
-            
-        if reg_type is RegularizationType.SHRINKAGE:
-            return reg_lambda*np.diag(np.diag(sigma)) + (1-reg_lambda)*sigma
-        elif reg_type is RegularizationType.DIAGONAL:
-            return sigma + reg_lambda*np.eye(len(sigma))
-        elif reg_type is RegularizationType.COMBINED:
-            return reg_lambda*np.diag(np.diag(sigma)) + (1-reg_lambda)*sigma + reg_lambda2*np.eye(len(sigma))
-        elif reg_type is RegularizationType.DIAGONAL_ONLY:
-            return sigma * np.eye(len(sigma))
-        elif reg_type is RegularizationType.ADD_CONSTANT:
-            return sigma + reg_lambda
-        elif reg_type is RegularizationType.NONE or reg_type is None:
-            return sigma
-        else:
-            raise ValueError('Unknown regularization type for covariance regularization')
-        
+
+        return regularize_covariance(sigma, reg_lambda, reg_lambda2, reg_type)
+
     def _update_empirical_covariance(self, x, h=None, reg_lambda=1e-3, reg_lambda2=1e-3,
                                reg_type=RegularizationType.SHRINKAGE):
         self.sigma = self.__empirical_covariance(x, h, reg_lambda, reg_lambda2, reg_type)
@@ -498,17 +508,19 @@ class Gaussian(object):
         sigma_s = self.sigma
         sigma_o = other.sigma
 
+        diag_const = 1e-8  # 20
+
         # Decomposition of covariance:
         try:
             lambda_s = np.linalg.inv(sigma_s)
         except np.linalg.LinAlgError:
             logger.warning("Singular matrix, adding diag constant", filter=False)
-            lambda_s = np.linalg.inv(sigma_s + np.eye(sigma_s.shape[0])*1e-20)
+            lambda_s = np.linalg.inv(sigma_s + np.eye(sigma_s.shape[0])*diag_const)
         try:
             lambda_o = np.linalg.inv(sigma_o)
         except np.linalg.LinAlgError:
             logger.warning("Singular matrix, adding diag constant", filter=False)
-            lambda_o = np.linalg.inv(sigma_o + np.eye(sigma_o.shape[0])*1e-20)
+            lambda_o = np.linalg.inv(sigma_o + np.eye(sigma_o.shape[0])*diag_const)
        
         mu  = self.mu # Initial guess
         it=0; diff = 1
@@ -524,7 +536,7 @@ class Gaussian(object):
                 sigma = np.linalg.inv( lambda_sn + lambda_on)  # TODO: add regularization?
             except np.linalg.LinAlgError:
                 logger.warning("Singular matrix, adding diag constant", filter=False)
-                sigma = np.linalg.inv( lambda_sn + lambda_on + np.eye(lambda_sn.shape[0])*1e-20 )
+                sigma = np.linalg.inv( lambda_sn + lambda_on + np.eye(lambda_sn.shape[0])*diag_const )
 
             # Compute weighted distances:
             d_self  = lambda_sn.dot( Log(self.mu , mu) )
@@ -547,7 +559,11 @@ class Gaussian(object):
     def tangent_action(self,A):
         ''' Perform Transformation A, to the tangent space of the Gaussian'''
         # Apply A, to covariance
+        # print("=======================================")
+        # print(np.log(self.sigma))
+        # print(A)
         self.sigma = A.dot(self.sigma.dot(A.T))
+        # print(np.log(self.sigma))
 
     def parallel_transport(self, h):
         ''' Move Gaussian to h using parallel transport.'''
@@ -555,8 +571,12 @@ class Gaussian(object):
 
         # Compute rotation for covariance matrix:
         R = man.parallel_transport(np.eye(man.n_dimT), self.mu, h).T
+        # print("=======================================")
+        # print(np.log(self.sigma))
+        # print(R)
         self.sigma = R.dot( self.sigma.dot(R.T) )
         self.mu = h
+        # print(np.log(self.sigma))
 
     def inv_trans_s(self, A, b):
         # print(A)
@@ -691,6 +711,25 @@ class GMM:
             self.base = base
 
         self._last_reg_type = None
+
+    @property
+    def precision(self):
+        try:
+            prec = np.linalg.inv(self.sigma)
+        except np.linalg.LinAlgError:
+            logger.warning("Singular matrix, adding diag constant", filter=False)
+            prec = np.linalg.inv(self.sigma + np.eye(self.sigma.shape[1])*1e-20)
+
+        return prec
+    
+    @property
+    def precision_det(self):
+        return np.linalg.det(self.precision)
+    
+    # @property
+    # def precision_eigmin(self):
+    #     print(np.linalg.eigvals(self.precision))
+    #     return np.min(np.linalg.eigvals(self.precision))
 
     def set_n_components(self, n_components, warn=True):
         logger.info(f"Changing number of components to {n_components}")
@@ -1280,10 +1319,24 @@ class GMM:
             self.gaussians[i].mu = self.base 
             self.gaussians[i].parallel_transport(mus_new[i])
 
-    def homogeneous_trans(self, A, b):
+    def __regularize_covariance(self, reg_lambda, reg_lambda2, reg_type):
+        for i in range(len(self.gaussians)):
+            self.gaussians[i].sigma = regularize_covariance(
+                self.gaussians[i].sigma, reg_lambda, reg_lambda2, reg_type)
+            
+    def __mask_covariance(self, mask):
+        for i in range(len(self.gaussians)):
+            self.gaussians[i].sigma = self.gaussians[i].sigma * mask
+
+    def homogeneous_trans(self, A, b, reg_kwargs=None, mask=None):
         model = self.copy()
         model.tangent_action(A)  # Apply A in tangent space of origin.
         model.parallel_transport(b)   # Move origin to new mean.
+
+        if reg_kwargs is not None:
+            model.__regularize_covariance(**reg_kwargs)
+        if mask is not None:
+            model.__mask_covariance(mask)
 
         return model
        
@@ -1976,6 +2029,10 @@ class HMM(GMM):
                 mask[dGrid] = 1.
 
         return mask
+    
+    def _scale_sigma(self, mask: np.ndarray):
+        for g in self.gaussians:
+            g.sigma *= mask
 
     def em(self, demos, dep=None, table=None, dep_mask=None,
            left_to_right=False, nb_max_steps=40, loop=False, obs_fixed=False,
@@ -2040,10 +2097,10 @@ class HMM(GMM):
                 mask[-1, 0] = 1.
 
         if dep_mask is not None:
-            raise NotImplementedError(
-                "Need to update sigma for the gaussians individually, see below."
-                "When implementing this, also update all other occurances below.")
-            self.sigma *= dep_mask
+            # raise NotImplementedError(
+            #     "Need to update sigma for the gaussians individually, see below."
+            #     "When implementing this, also update all other occurances below.")
+            self._scale_sigma(dep_mask)
 
 
         gaussians = self.gaussians
@@ -2075,7 +2132,7 @@ class HMM(GMM):
                     gauss.mle(data_rbd, gamma2[i+offset], **mle_kwargs)
 
                 if dep_mask is not None:
-                    self.sigma *= dep_mask
+                    self._scale_sigma(dep_mask)
 
             # Update initial state probablility vector
             self.init_priors = np.mean(gamma_init, axis=1)
@@ -2118,7 +2175,7 @@ class HMM(GMM):
                             data_rbd, gamma2[i+offset], **finish_kwargs)
 
                 if dep_mask is not None:
-                    self.sigma *= dep_mask
+                    self._scale_sigma(dep_mask)
 
                 break
 
