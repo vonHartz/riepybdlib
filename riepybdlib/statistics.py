@@ -41,7 +41,7 @@ from IPython.display import HTML, display
 from itertools import chain
 from functools import reduce
 import numpy as np
-import pbdlib as pbd
+# import pbdlib as pbd
 import riepybdlib.manifold as rm
 import riepybdlib.plot as fctplt
 from scipy.linalg import block_diag
@@ -52,8 +52,8 @@ from enum import Enum
 
 from riepybdlib.mappings import s2_quat_action
 
-realmin = pbd.functions.realmin
-realmax = pbd.functions.realmax
+realmin = np.finfo(np.float64).tiny
+realmax = np.finfo(np.float64).max
 
 def multiply_iterable(l):
     return reduce(lambda x, y: x*y, l)

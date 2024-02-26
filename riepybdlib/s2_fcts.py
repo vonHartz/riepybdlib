@@ -129,7 +129,7 @@ def plot_manifold(ax,base=[0,0,1],color=[0.8,0.8,0.8],alpha=0.4,r=0.99, linewidt
     ax.set_xlim([-lim,lim])
     ax.set_ylim([-lim,lim])
     ax.set_zlim([-lim,lim])
-    
+
 
 def plot_tangentplane(ax, base, l_vert=1,color='gray',alpha=0.1, linewidth=0, **kwargs):
     # Tangent axis at 0 rotation:
