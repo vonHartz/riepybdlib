@@ -230,7 +230,9 @@ def quat_log_e(g, reg=1e-6, arccos_func=arccos_cont):
         # raise KeyboardInterrupt
 
         if np.isnan(g_tan).any():
-            raise ValueError("quat_log_e: nan in tangent values.")
+            from loguru import logger
+            logger.warning("quat_log_e: nan in tangent values.")
+            # raise ValueError("quat_log_e: nan in tangent values.")
 
         return g_tan
     else:

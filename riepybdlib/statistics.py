@@ -158,6 +158,13 @@ class Gaussian(object):
         #d = len(self.mu) # Dimensions
         d = self.manifold.n_dimT
         reg = np.sqrt( ( (2*np.pi)**d )*np.linalg.det(self.sigma) ) + 1e-200
+        # with np.errstate(invalid='raise'):
+        #     try:
+        #         reg = np.sqrt( ( (2*np.pi)**d )*np.linalg.det(self.sigma) ) + 1e-200
+        #     except FloatingPointError as e:
+        #         logger.warning("Damn")
+        #         print("that: ", d, self.sigma)
+        #         raise e
         
         # Mahanalobis Distance:
 
@@ -937,6 +944,9 @@ class GMM:
         t_min = t.min()
         t_max = t.max()
 
+        # print(fix_first_component, fix_last_component)
+        # print(fixed_first_component_n_steps, fixed_last_component_n_steps)
+
         t_start = t_min + (fixed_first_component_n_steps * t_delta) if fix_first_component else t_min
         t_stop = t_max - (fixed_last_component_n_steps * t_delta) if fix_last_component else t_max
 
@@ -944,6 +954,8 @@ class GMM:
 
         # Timing seperation:
         timing_sep = np.linspace(t_start, t_stop, n_dyn_components+1)
+
+        # print(timing_sep)
 
         if fix_first_component:
             timing_sep = np.concatenate(([t_min], timing_sep))
@@ -1339,6 +1351,9 @@ class GMM:
             model.__mask_covariance(mask)
 
         return model
+    
+    def mask_covariance(self, mask):
+        self.__mask_covariance(mask)
        
     def margin(self, i_in):
         # Construct new GMM:
@@ -2142,6 +2157,7 @@ class HMM(GMM):
                 raise ValueError("Nan in zeta")
             if np.isnan(gamma_trk).any():
                 raise ValueError("Nan in gamma_trk")
+
             self.Trans = np.sum(zeta, axis=2) / (np.sum(gamma_trk, axis=1) + realmin)
 
             if trans_reg is not None:
