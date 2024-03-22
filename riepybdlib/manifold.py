@@ -64,6 +64,7 @@ class Manifold(object):
                  f_action = None,
                  f_parallel_transport= None,
                  exp=None, log=None,
+                 f_patch_action_element = None
                  ):
         
         # Check input
@@ -115,6 +116,7 @@ class Manifold(object):
                 self.__fexp = self.exp
                 self.__flog = self.log
 
+                self.patch_action_element = self._submani_wise_patch_action_element
             else:
                 # If there is only one manifold in the list, we need to use the dedicated functions
                 self.id_elem = manlist[-1].id_elem 
@@ -127,6 +129,9 @@ class Manifold(object):
                 self.__fexp = manlist[-1].exp
                 self.__flog = manlist[-1].log
 
+                self.patch_action_element = manlist[-1].patch_action_element
+
+                        
             
         else:
             # Root manifold:
@@ -173,7 +178,22 @@ class Manifold(object):
             self.n_dimM =n_dimM
             self.name = name
 
+            if f_patch_action_element is None:
+                self.patch_action_element = lambda g, h: h
+            else:
+                self.patch_action_element = lambda g, h: f_patch_action_element(self, g, h)
+
         self.n_manifolds = len(self.__manlist)
+
+    def _submani_wise_patch_action_element(self, g, h):
+        # if len(self.__manlist) == 1:
+        #     return h
+        # else:
+        # for i in range(self.n_manifolds):
+        #     print(self.__manlist[i].patch_action_element)
+        return tuple(
+            self.__manlist[i].patch_action_element(g[i], h[i]) for i in range(self.n_manifolds)
+        )
 
     def get_submanifolds(self):
         return self.__manlist
@@ -530,6 +550,7 @@ def get_s2hat_manifold(name='S2hat', fnptoman=None, fmantonp=None):
                  f_action=s2_quat_action,
                  f_parallel_transport=s2_parallel_transport,
                  exp=s2_exp, log=s2_log, # Add optional non-base maps that to provide more efficient computation
+                 f_patch_action_element=s2_patch_action_element
                  )
 
 
