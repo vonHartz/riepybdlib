@@ -389,6 +389,8 @@ def s2_quat_action(x, g, h):
 
 def s2_patch_action_element(self, g, h):
     return s2_quat_action(self.id_elem, g, h)
+    # ax, angle = h.axis_angle()
+    return ax
 
 def s2_exp_e(g_tan, reg=1e-6):
     if g_tan.ndim ==2:
