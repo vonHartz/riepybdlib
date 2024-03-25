@@ -471,12 +471,15 @@ def s2_log_e(g, reg = 1e-10):
         sl_2 =  np.ix_( cond, [2] )
         sl_01 = np.ix_( cond, range(0,2) )
 
-        val[sl_01] = (g[sl_01].T*( arccos_star( g[sl_2].squeeze(1))/np.linalg.norm(g[sl_01], axis=1) ) ).T
+        val[sl_01] = (g[sl_01].T*( np.arccos( g[sl_2])[:,0]/np.linalg.norm(g[sl_01], axis=1) ) ).T
+        # val[sl_01] = (g[sl_01].T*( arccos_star( g[sl_2].squeeze(1))/np.linalg.norm(g[sl_01], axis=1) ) ).T
         return val 
     else:
         # single mode:
         if abs(1-g[2]) > reg:
-            return arccos_star(g[2])*g[0:2]/np.linalg.norm(g[0:2])
+            return np.arccos(g[2])*g[0:2]/np.linalg.norm(g[0:2])
+            # return arccos_star(g[2])*g[0:2]/np.linalg.norm(g[0:2])
+
         else:
             return np.array([0,0])
 

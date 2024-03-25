@@ -1323,8 +1323,11 @@ class GMM:
         # as quats are not in S2.
         # So with the quat action, set the base to h applied to the id element
         new_base = self.manifold.patch_action_element(self.base, h)
-        self.base = new_base
+        print("====================================")
+        print(self.base)
         print(new_base)
+        print("====================================")
+        self.base = new_base
 
         mus_new = man.swapto_listoftuple(mus_new)
         for i,_ in enumerate(self.gaussians):
