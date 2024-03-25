@@ -1324,6 +1324,7 @@ class GMM:
         # So with the quat action, set the base to h applied to the id element
         new_base = self.manifold.patch_action_element(self.base, h)
         self.base = new_base
+        print(new_base)
 
         mus_new = man.swapto_listoftuple(mus_new)
         for i,_ in enumerate(self.gaussians):
@@ -2220,11 +2221,6 @@ class HMM(GMM):
         return ll
 
     def condition(self, data_in, dim_in, dim_out):
-
-        print(type(data_in))
-        print(len(data_in))
-        print(type(dim_in[0]))
-        print(len(dim_in[0]))
 
         return super.condition(self, data_in, dim_in, dim_out)
 

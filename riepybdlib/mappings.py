@@ -369,6 +369,33 @@ def s2_quat_action(x, g, h):
         raise ValueError(
             "h must be a quaternion. Or did you mean to use  vanilla S2?"
             )
+    assert np.equal(g, s2_id).all()
+
+    print('-------------------')
+    print(x)
+    # print(g)
+    # print(h)
+
+    batch_mode = len(x.shape) == 2
+
+    if batch_mode:
+        x_quats = [ar.Quaternion(0, d) for d in x]
+    else:
+        x_quats = [ar.Quaternion(0, x)]
+
+    rotated = [h*quat*h.i() for quat in x_quats]
+
+    res = [r.q for r in rotated]
+
+    if batch_mode:
+        res = np.stack(res, axis=0)
+    else:
+        res = res[0]
+
+    print(res)
+
+    return res
+
     
     # Convert possible list into nparray
     if type(x) is list:
@@ -385,12 +412,16 @@ def s2_quat_action(x, g, h):
     # and then from e to h:
     A = Reh.dot(Reg.T)
 
-    return x.dot(A.T)
+    res = x.dot(A.T)
+
+    print(res)
+
+    return res
 
 def s2_patch_action_element(self, g, h):
     return s2_quat_action(self.id_elem, g, h)
     # ax, angle = h.axis_angle()
-    return ax
+    # return ax
 
 def s2_exp_e(g_tan, reg=1e-6):
     if g_tan.ndim ==2:
@@ -440,12 +471,12 @@ def s2_log_e(g, reg = 1e-10):
         sl_2 =  np.ix_( cond, [2] )
         sl_01 = np.ix_( cond, range(0,2) )
 
-        val[sl_01] = (g[sl_01].T*( np.arccos( g[sl_2])[:,0]/np.linalg.norm(g[sl_01], axis=1) ) ).T
+        val[sl_01] = (g[sl_01].T*( arccos_star( g[sl_2].squeeze(1))/np.linalg.norm(g[sl_01], axis=1) ) ).T
         return val 
     else:
         # single mode:
         if abs(1-g[2]) > reg:
-            return np.arccos(g[2])*g[0:2]/np.linalg.norm(g[0:2])
+            return arccos_star(g[2])*g[0:2]/np.linalg.norm(g[0:2])
         else:
             return np.array([0,0])
 
