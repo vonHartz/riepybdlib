@@ -371,8 +371,8 @@ def s2_quat_action(x, g, h):
             )
     assert np.equal(g, s2_id).all()
 
-    print('-------------------')
-    print(x)
+    # print('-------------------')
+    # print(x)
     # print(g)
     # print(h)
 
@@ -392,7 +392,7 @@ def s2_quat_action(x, g, h):
     else:
         res = res[0]
 
-    print(res)
+    # print(res)
 
     return res
 
