@@ -157,7 +157,8 @@ class Gaussian(object):
         # Regularization term
         #d = len(self.mu) # Dimensions
         d = self.manifold.n_dimT
-        reg = np.sqrt( ( (2*np.pi)**d )*np.linalg.det(self.sigma) ) + 1e-200
+        with np.errstate(invalid='raise'):
+            reg = np.sqrt( ( (2*np.pi)**d )*np.linalg.det(self.sigma) ) + 1e-200
         # with np.errstate(invalid='raise'):
         #     try:
         #         reg = np.sqrt( ( (2*np.pi)**d )*np.linalg.det(self.sigma) ) + 1e-200
