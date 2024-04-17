@@ -2312,7 +2312,52 @@ class ModelList():
     def sigma(self):
         _, sigma = self.get_mu_sigma(stack=True, as_np=True)
         return sigma
+    
 
+class GMMCascade(ModelList):
+    def __init__(
+            self,
+            segment_models: tuple[GMM, ...],
+            prior_weights: tuple[np.ndarray, ...],
+        ) -> None:
+
+        for seg_model in segment_models[1:]:
+            assert seg_model.manifold.name == segment_models[0].manifold.name, (
+                "GMM Cascade only defined for GMMs with same manifold. Forgot to"
+                " caculate joint model first? Or to marginalize to common frames?"
+            )
+
+        super().__init__(segment_models)
+
+        self.manifold = segment_models[0].manifold
+
+        self.gaussians = tuple(chain(*(m.gaussians for m in self.segment_models)))
+
+        self.priors = tuple(chain(
+            *(m.priors * w for m, w in zip(self.segment_models, prior_weights))))
+        
+    def gmr_from_np(self, demo, i_in, i_out, initial_obs=False):
+        return GMM.gmr_from_np(self, demo, i_in, i_out, initial_obs)
+    
+    def np_to_manifold_to_np(self, npdata_in, i_in=None, base=None):
+        return GMM.np_to_manifold_to_np(self, npdata_in, i_in, base)
+    
+    def gmr(self, demo, i_in, i_out, initial_obs=False):
+        return GMM.gmr(self, demo, i_in, i_out)
+    
+    def margin(self, i_in) -> tuple[GMM, ...]:
+        # Construct new GMM:
+        newgmm = GMM(self.manifold.get_submanifold(i_in), self.n_components)
+
+        # Copy priors
+        newgmm.priors = self.priors
+
+        # Add marginalized Gaussian
+        for i,gauss in enumerate(self.gaussians):
+            newgmm.gaussians[i] = gauss.margin(i_in)
+        return newgmm
+            
+    
 class HMMCascade(ModelList):
     def __init__(
             self,
@@ -2385,7 +2430,6 @@ class HMMCascade(ModelList):
         self._alpha_tmp /= np.sum(self._alpha_tmp, keepdims=True)
 
         return self._alpha_tmp
-
 
     def gmr_from_np(self, demo, i_in, i_out, initial_obs=False):
         return HMM.gmr_from_np(self, demo, i_in, i_out, initial_obs)
