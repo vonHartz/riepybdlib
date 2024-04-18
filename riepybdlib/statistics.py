@@ -2427,6 +2427,12 @@ class HMMCascade(ModelList):
         else:
             self._alpha_tmp = self._alpha_tmp.dot(self.Trans) * B[:, 0]
 
+        if np.isnan(self._alpha_tmp).any():
+            logger.warning("Nan in forward message. Resetting to prior.")
+            self._alpha_tmp = self.init_priors * B[:, 0]
+
+        # logger.error(f"{B[:, 0].max()}, {self._alpha_tmp.max()}")
+
         self._alpha_tmp /= np.sum(self._alpha_tmp, keepdims=True)
 
         return self._alpha_tmp
