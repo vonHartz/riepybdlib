@@ -131,6 +131,9 @@ def arccos_cont(rho, initial_ref=np.pi/4, reg=1e-6):
         result = arccos_cont(batched, initial_ref)
         return result[0]
     else:
+        if np.any(np.abs(rho) > 1):
+            print(f"arccos_cont: got values outside range {rho}, clipping")
+            rho = np.clip(rho, -1, 1)
         return np.arccos(rho)
 
         # for i in range(1, acos.shape[0]):
@@ -240,6 +243,14 @@ def quat_log_e(g, reg=1e-6, arccos_func=arccos_cont):
         #                           "single values yet.")
         # Single mode:
         if abs(g.q0 - 1.0)>reg:
+            # res = arccos_func(g.q0)* (g.q/np.linalg.norm(g.q))
+            # if np.isnan(res).any():
+            #     print("g.q ", g.q)
+            #     print("g.q0 ", g.q0)
+            #     print(arccos_func(g.q0))
+            #     print((g.q/np.linalg.norm(g.q)))
+            #     raise ValueError("quat_log_e: nan in tangent values.")
+            # return res
             return arccos_func(g.q0)* (g.q/np.linalg.norm(g.q))
         else:
             return np.zeros(3)
@@ -289,17 +300,28 @@ def quat_parallel_transport(Xg, g, h, t=1):
         Implementation is modified version of the one reported in
         Optimization algorithms on Manifolds:
     '''
-    
+    # print("Xg", Xg)
+    # print("g", g)
+    # print("h", h)
+
     # Get intermediate position on geodesic between g and h 
     if t<1:
         ht = quat_exp( quat_log(h, g)*t, g)
     else:
         ht=h
+
+    # print("ht", ht)
     
     # Get quaternion matrices for rotation computation
     Qeg = g.Q()  # Rotation between origin and g
     Qeh = ht.Q() # between  rotation between ht and origin
     
+    # print("Qeg", Qeg)
+    # print("Qeh", Qeh)
+
+    # print("g.i()", g.i())
+    # print("g.i()*h", g.i()*h)
+    # print("quat_log(h,g)", quat_log(h,g))
     
     # Get tangent  vector of h in g, expressed in R^4
     # We first construct it at the origin (by augmenting it with 0)
@@ -309,6 +331,10 @@ def quat_parallel_transport(Xg, g, h, t=1):
     # Transform g into np array for computations
     gnp = g.to_nparray()  # Transform to np array
     m = np.linalg.norm(v) # Angle of rotation (or 'transport)
+
+    # print("v", v)
+    # print("gnp", gnp)
+    # print("m", m)
     
     # Compute Tangential rotation (this is done in n_dimM)
     if m < 1e-6:
@@ -328,7 +354,12 @@ def quat_parallel_transport(Xg, g, h, t=1):
     Ig   = Ie.dot(Qeg.T)                   # Base orientation at g
     Ih   = Ig.dot(Rgh.T)                   # Base orientation at h by parallel transport
     Ie_p = Ih.dot(Qeh)                     # Tangent space orientation at origin with parallel transport
-    
+
+    # print("Ie", Ie)
+    # print("Ig", Ig)
+    # print("Ih", Ih)
+    # print("Ie_p", Ie_p)
+        
     # Compute relative rotation:
     R = Ie.dot(Ie_p.T)
     
@@ -336,6 +367,9 @@ def quat_parallel_transport(Xg, g, h, t=1):
         # Change sign, to ensure proper rotation
         R = -R
                    
+    # print("Xg", Xg)
+    # print("R", R)
+    # print("XgR", Xg.dot(R.T))
     # Transform points and return
     return Xg.dot(R.T)    
         

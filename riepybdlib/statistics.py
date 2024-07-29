@@ -516,6 +516,10 @@ class Gaussian(object):
         sigma_s = self.sigma
         sigma_o = other.sigma
 
+        # print("=======================================")
+        # print(sigma_s)
+        # print(sigma_o)          
+
         diag_const = 1e-8  # 20
 
         # Decomposition of covariance:
@@ -529,6 +533,10 @@ class Gaussian(object):
         except np.linalg.LinAlgError:
             logger.warning("Singular matrix, adding diag constant", filter=False)
             lambda_o = np.linalg.inv(sigma_o + np.eye(sigma_o.shape[0])*diag_const)
+
+        # print("----------- Lambda ------------")
+        # print(lambda_s)
+        # print(lambda_o)
        
         mu  = self.mu # Initial guess
         it=0; diff = 1
@@ -539,12 +547,27 @@ class Gaussian(object):
             Ro = fR(other.mu, mu)
             lambda_on = Ro.dot( lambda_o.dot( Ro.T) )
 
+            # print("----------------- Mu -----------------")
+            # print(mu)
+            # print(self.mu)
+            # print(other.mu)
+
+            # print("------------ R ------------")
+            # print(Rs)
+            # print(Ro)
+
+            # print("----------- Lambda N ------------")
+            # print(lambda_sn)
+            # print(lambda_on)
+
             # Compute new covariance:
             try:
                 sigma = np.linalg.inv( lambda_sn + lambda_on)  # TODO: add regularization?
             except np.linalg.LinAlgError:
                 logger.warning("Singular matrix, adding diag constant", filter=False)
                 sigma = np.linalg.inv( lambda_sn + lambda_on + np.eye(lambda_sn.shape[0])*diag_const )
+
+            # print(sigma)
 
             # Compute weighted distances:
             d_self  = lambda_sn.dot( Log(self.mu , mu) )
@@ -561,6 +584,10 @@ class Gaussian(object):
                 logger.warning(
                     'Product did not converge in {0} iterations.'.format(max_it))
                 break
+
+        # print(mu)
+        # print(sigma)
+        # raise KeyboardInterrupt
 
         return Gaussian(self.manifold, mu,sigma)
 
@@ -1773,6 +1800,8 @@ class HMM(GMM):
 
                 if dep is None:
                     # evaluate the MVN at index i of marg_gmm at demo
+                    # print(demo)
+                    # print(marg_gmm.gaussians[i].mu, marg_gmm.gaussians[i].sigma)
                     B[i, :] = marg_gmm.gaussians[i].prob_from_np(demo, log=True)
 
                 else:  # block diagonal computation
