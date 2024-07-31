@@ -132,7 +132,7 @@ def arccos_cont(rho, initial_ref=np.pi/4, reg=1e-6):
         return result[0]
     else:
         if np.any(np.abs(rho) > 1):
-            print(f"arccos_cont: got values outside range {rho}, clipping")
+            # print(f"arccos_cont: got values outside range {rho}, clipping")
             rho = np.clip(rho, -1, 1)
         return np.arccos(rho)
 
