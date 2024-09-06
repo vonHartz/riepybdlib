@@ -838,7 +838,8 @@ class GMM:
     # @logger.contextualize(filter=False)
     def fit_from_np(self, npdata, convthres=1e-5, maxsteps=100, minsteps=5, reg_lambda=1e-3, 
                     reg_lambda2=1e-3, reg_type= RegularizationType.SHRINKAGE,
-                    plot=False, fix_last_component=False, fix_first_component=False):
+                    plot=False, fix_last_component=False, fix_first_component=False,
+                    show_progress=True):
         '''Initialize trajectory GMM using a time-based approach'''
 
         data = self.manifold.np_to_manifold(npdata)
@@ -857,7 +858,7 @@ class GMM:
         
         prvlik = 0
         avg_loglik = []
-        for st in tqdm(range(maxsteps), desc='EM'):
+        for st in tqdm(range(maxsteps), desc='EM', disable=not show_progress):
             # Expectation:
             lik = self.expectation(data)
             gamma0 = (lik/ (lik.sum(axis=0) + 1e-200) )# Sum over states is one
