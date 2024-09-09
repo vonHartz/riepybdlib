@@ -66,6 +66,7 @@ class RegularizationType(Enum):
     COMBINED  = 3
     DIAGONAL_ONLY = 4
     ADD_CONSTANT = 5
+    DIAGONAL_ONLY_WITH_CONSTANT = 6
     # NOTE: there's also spherical, which is an diagonal scaled by a constant
     # for all dimensions. Ie. like diagonal, but with a single value.
     # Didn't see a reasoon to implement this, as it is very restrictive.
@@ -81,6 +82,8 @@ def regularize_covariance(sigma, reg_lambda=1e-3, reg_lambda2=1e-3,
         return reg_lambda*np.diag(np.diag(sigma)) + (1-reg_lambda)*sigma + reg_lambda2*np.eye(len(sigma))
     elif reg_type is RegularizationType.DIAGONAL_ONLY:
         return sigma * np.eye(len(sigma))
+    elif reg_type is RegularizationType.DIAGONAL_ONLY_WITH_CONSTANT:
+        return (sigma + reg_lambda) * np.eye(len(sigma))
     elif reg_type is RegularizationType.ADD_CONSTANT:
         return sigma + reg_lambda
     elif reg_type is RegularizationType.NONE or reg_type is None:
