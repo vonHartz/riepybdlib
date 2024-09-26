@@ -695,14 +695,20 @@ class Gaussian(object):
         np.savetxt('{0}_mu.txt'.format(name),self.manifold.manifold_to_np(self.mu) )
         np.savetxt('{0}_sigma.txt'.format(name),self.sigma)
 
-    def sample(self, n_samples=1):
+    def sample(self, n_samples=1, as_np=False):
         A = np.linalg.cholesky(self.sigma)
         if n_samples == 1:
             samp = A.dot(np.random.randn(self.manifold.n_dimT))
         else:
             samp = (A.dot(np.random.randn(self.manifold.n_dimT,n_samples))).T
 
-        return self.manifold.exp(samp,self.mu)
+        exp_samp = self.manifold.exp(samp,self.mu)
+
+        if as_np:
+            exp_samp_np = self.manifold.manifold_to_np(exp_samp)
+            return exp_samp_np
+        else:
+            return exp_samp
 
     @staticmethod
     def load(name,manifold):
@@ -1592,6 +1598,15 @@ class GMM:
         for i,g in enumerate(self.gaussians):
             g.save('{0}{1}'.format(name,i) )
         np.savetxt('{0}_priors.txt'.format(name),self.priors)
+
+    def sample(self, n_samples=1, as_np=False):
+        data = []
+
+        for _ in range(n_samples):
+            idx = np.random.choice(self.n_components, p=self.priors)
+            data.append(self.gaussians[idx].sample(as_np=as_np))
+
+        return tuple(data) if n_samples > 1 else data[0]
 
     @staticmethod
     def load(name,n_components,manifold):
