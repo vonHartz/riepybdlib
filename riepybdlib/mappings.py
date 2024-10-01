@@ -661,8 +661,8 @@ def s1_log(x, g, reg=1e-10):
 
 # Cylindrical manifold, R1xS1
 def cylindrical_exp_e(g_tan):
-    print(g_tan)
     print(g_tan.shape)
+    print(g_tan)
     assert g_tan.shape[-1] == 2
     
     linear_part = g_tan[..., 0]
@@ -688,7 +688,8 @@ def cylindrical_log_e(g, reg=1e-10):
     return np.stack([linear_part, angle], axis=-1)
 
 def cylindrical_exp(x, g, reg=1e-10):
-    assert x.shape[-1] == 3
+    print(x.shape, g.shape)
+    assert x.shape[-1] == 2
     assert g.shape[-1] == 2
     
     linear_part_x = x[..., 0]
@@ -728,7 +729,7 @@ def cylindrical_log(x, g, reg=1e-10):
     
     angle_diff = angle_x - angle_g
     
-    return np.stack([linear_diff, angle_diff], axis=-1)
+    return np.concatenate([linear_diff[..., None], angle_diff], axis=-1)
 
 
 # General Linear Group:
