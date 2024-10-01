@@ -606,6 +606,8 @@ def s2_parallel_transport(Xg, g, h, t=1):
 # S1
 s1_id = np.array([0,1])
 
+cylindrical_id = np.array([0,0,1])
+
 
 def dummy_action(x, g, h):
     # Only using S1 as global dim, so no action needed. But needed for model
@@ -656,6 +658,77 @@ def s1_log(x, g, reg=1e-10):
     x_tan = s1_log_e(x, reg)
 
     return x_tan - g_tan
+
+# Cylindrical manifold, R1xS1
+def cylindrical_exp_e(g_tan):
+    print(g_tan)
+    print(g_tan.shape)
+    assert g_tan.shape[-1] == 2
+    
+    linear_part = g_tan[..., 0]
+    
+    angle = g_tan[..., 1]
+    
+    s1_part = s1_exp_e(angle)
+    
+    return np.concatenate(
+        [np.expand_dims(linear_part, axis=-1), s1_part],
+        axis=-1
+    )
+
+def cylindrical_log_e(g, reg=1e-10):
+    assert g.shape[-1] == 3
+    
+    linear_part = g[..., 0]
+    
+    s1_part = g[..., 1:3]
+    
+    angle = s1_log_e(s1_part)
+    
+    return np.stack([linear_part, angle], axis=-1)
+
+def cylindrical_exp(x, g, reg=1e-10):
+    assert x.shape[-1] == 3
+    assert g.shape[-1] == 2
+    
+    linear_part_x = x[..., 0]
+    s1_part_x = x[..., 1:3]
+    
+    linear_part_g = g[..., 0]
+    angle_g = g[..., 1]
+    
+    new_linear_part = linear_part_x + linear_part_g
+    
+    s1_tan_x = s1_log_e(s1_part_x)
+    
+    new_angle = s1_tan_x + angle_g
+    
+    new_s1_part = s1_exp_e(new_angle)
+    
+    return np.concatenate(
+        [np.expand_dims(new_linear_part, axis=-1), new_s1_part],
+        axis=-1
+    )
+
+
+def cylindrical_log(x, g, reg=1e-10):
+    assert x.shape[-1] == 3
+    assert g.shape[-1] == 3
+
+    linear_part_x = x[..., 0]
+    linear_part_g = g[..., 0]
+    
+    linear_diff = linear_part_x - linear_part_g
+    
+    s1_part_x = x[..., 1:3]
+    s1_part_g = g[..., 1:3]
+    
+    angle_x = s1_log_e(s1_part_x)
+    angle_g = s1_log_e(s1_part_g)
+    
+    angle_diff = angle_x - angle_g
+    
+    return np.stack([linear_diff, angle_diff], axis=-1)
 
 
 # General Linear Group:

@@ -565,6 +565,17 @@ def get_s1_manifold(name='S1', fnptoman=None, fmantonp=None):
                  exp=s1_exp, log=s1_log# Add optional non-base maps that to provide more efficient computation
                  )
 
+def get_cylindrical_manifold(name='Cylindrical', fnptoman=None, fmantonp=None):
+    return Manifold(n_dimM=3, n_dimT=2, 
+                 exp_e=cylindrical_exp_e, log_e=cylindrical_log_e,
+                 id_elem=cylindrical_id, 
+                 name=name, 
+                 f_nptoman= fnptoman,
+                 f_mantonp= fmantonp,
+                 f_action=dummy_action,
+                 f_parallel_transport=dummy_transport,
+                 exp=cylindrical_exp, log=cylindrical_log# Add optional non-base maps that to provide more efficient computation
+                 )
 
 def SO2_parallelTransp(xtan, a, b, t):
     return xtan
