@@ -38,6 +38,8 @@ import scipy as sp
 import scipy.linalg 
 import riepybdlib.angular_representations as ar
 
+from functools import partial
+
 # Some add functions to transform matrices into vectors and back
 def matrix2vec(S):
     ''' Conversion of Matrix to equivalent Vector representation'''
@@ -255,6 +257,9 @@ def quat_log_e(g, reg=1e-6, arccos_func=arccos_cont):
         else:
             return np.zeros(3)
     
+
+quat_log_e_star = partial(quat_log_e, arccos_func=arccos_star)
+
     
 # The exponential map:
 def quat_exp_e(g_tan, reg=1e-6):

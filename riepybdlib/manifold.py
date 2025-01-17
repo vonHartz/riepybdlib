@@ -528,6 +528,18 @@ def get_quaternion_manifold(name='Quaternion Manifold'):
                  exp=quat_exp, log=quat_log # Add optional non-base maps that to provide more efficient computation
                     )
 
+def get_quaternion_manifold_star(name='Quaternion Manifold'):
+    return Manifold(n_dimM=4, n_dimT=3, 
+                 exp_e=quat_exp_e, log_e=quat_log_e_star, id_elem=quat_id, 
+                 name=name, 
+                 f_nptoman= ar.Quaternion.from_nparray,
+                 f_mantonp= ar.Quaternion.to_nparray_st,
+                 f_action= quat_action,
+                 f_parallel_transport = quat_parallel_transport,
+                 exp=quat_exp, log=quat_log # Add optional non-base maps that to provide more efficient computation
+                )
+
+
 def get_s2_manifold(name='S2', fnptoman=None, fmantonp=None):
     return Manifold(n_dimM=3, n_dimT=2, 
                  exp_e=s2_exp_e, log_e=s2_log_e, id_elem=s2_id, 
