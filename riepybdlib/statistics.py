@@ -799,6 +799,10 @@ class GMM:
         lik = np.vstack(lik)
         return lik
 
+    def predict_from_np(self, npdata):
+        data = self.manifold.np_to_manifold(npdata)
+        return self.predict(data)
+
     def predict(self, data):
         '''Classify to which datapoint each kernel belongs'''
         lik = self.expectation(data)
@@ -929,7 +933,7 @@ class GMM:
                         RegularizationType.COMBINED,
                         RegularizationType.ADD_CONSTANT]:
             cov_params = n_components * n_features * (n_features + 1) / 2.
-        elif reg_type == RegularizationType.DIAGONAL_ONLY:
+        elif reg_type in [RegularizationType.DIAGONAL_ONLY, RegularizationType.DIAGONAL_ONLY_WITH_CONSTANT]:
             cov_params = n_components * n_features
         elif reg_type is None:
             raise ValueError("Regularization type not set. Did perform fit?"
