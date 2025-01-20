@@ -294,13 +294,15 @@ def quat_exp_e(g_tan, reg=1e-6):
         else:
             return ar.Quaternion(1, np.zeros(3) )
 
-def quat_log(x,g, reg=1e-6):
-    return quat_log_e(g.i()*x, reg)
+def quat_log(x,g, reg=1e-6, arccos_func=arccos_cont):
+    return quat_log_e(g.i()*x, reg, arccos_func=arccos_func)
+
+quat_log_star = partial(quat_log, arccos_func=arccos_star)
 
 def quat_exp(x,g, reg=1e-6):
     return g*quat_exp_e(x, reg)
 
-def quat_parallel_transport(Xg, g, h, t=1):
+def quat_parallel_transport(Xg, g, h, t=1, arccos_func=arccos_cont):
     ''' Parallel transport of vectors in X from h to g*t, 0 <= t <= 1
         Implementation is modified version of the one reported in
         Optimization algorithms on Manifolds:
@@ -311,7 +313,7 @@ def quat_parallel_transport(Xg, g, h, t=1):
 
     # Get intermediate position on geodesic between g and h 
     if t<1:
-        ht = quat_exp( quat_log(h, g)*t, g)
+        ht = quat_exp( quat_log(h, g, arccos_func=arccos_func)*t, g)
     else:
         ht=h
 
@@ -331,7 +333,7 @@ def quat_parallel_transport(Xg, g, h, t=1):
     # Get tangent  vector of h in g, expressed in R^4
     # We first construct it at the origin (by augmenting it with 0)
     # and then rotate it to point g
-    v = Qeg.dot(np.hstack([[0], quat_log(h,g)]))
+    v = Qeg.dot(np.hstack([[0], quat_log(h,g, arccos_func=arccos_func)]))
         
     # Transform g into np array for computations
     gnp = g.to_nparray()  # Transform to np array
@@ -377,6 +379,8 @@ def quat_parallel_transport(Xg, g, h, t=1):
     # print("XgR", Xg.dot(R.T))
     # Transform points and return
     return Xg.dot(R.T)    
+
+quat_parallel_transport_star = partial(quat_parallel_transport, arccos_func=arccos_star)
         
 # ----------------------  S^2,
 s2_id = np.array([0,0,1])

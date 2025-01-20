@@ -535,8 +535,8 @@ def get_quaternion_manifold_star(name='Quaternion Manifold'):
                  f_nptoman= ar.Quaternion.from_nparray,
                  f_mantonp= ar.Quaternion.to_nparray_st,
                  f_action= quat_action,
-                 f_parallel_transport = quat_parallel_transport,
-                 exp=quat_exp, log=quat_log # Add optional non-base maps that to provide more efficient computation
+                 f_parallel_transport = quat_parallel_transport_star,
+                 exp=quat_exp, log=quat_log_star # Add optional non-base maps that to provide more efficient computation
                 )
 
 
