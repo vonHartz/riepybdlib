@@ -1258,7 +1258,8 @@ class GMM:
 
 
     # @logger.contextualize(filter=False)
-    def kmeans_from_np(self,npdata, maxsteps=100,reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE, plot=False, fix_first_component=False, fix_last_component=False):
+    def kmeans_from_np(self,npdata, maxsteps=100,reg_lambda=1e-3, reg_type=RegularizationType.SHRINKAGE, plot=False, fix_first_component=False, fix_last_component=False,
+    show_progress=True):
 
         if fix_first_component or fix_last_component:
             print(npdata.shape)
@@ -1274,7 +1275,7 @@ class GMM:
         dist = np.zeros( (n_data, self.n_components) )
         dist2 = np.zeros( (n_data, self.n_components) )
         id_old = np.ones(n_data) + self.n_components
-        for it in tqdm(range(maxsteps), desc='K-means'):
+        for it in tqdm(range(maxsteps), desc='K-means', disable=not show_progress):
             # E-step 
             # batch:
             for i, gauss in enumerate(self.gaussians):
