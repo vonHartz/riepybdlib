@@ -1,5 +1,4 @@
 from .angular_representations import *
-from .data import *
 from .lqrcontrol import *
 from .manifold import *
 from .mappings import *
