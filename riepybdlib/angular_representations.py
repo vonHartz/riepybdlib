@@ -185,11 +185,13 @@ class Quaternion(object):
         if qarray.ndim==1:
             # Single sample:
             return Quaternion(qarray[0], qarray[1:])
-        else:
+        elif qarray.ndim==2:
             qlist = []
             for i in range(qarray.shape[0]):
                 qlist.append(Quaternion(qarray[i,0], qarray[i,1:]))
             return qlist
+        else:
+            raise ValueError(f"qarray should be either 1d or 2d numpy array, got shape {qarray.shape}")
 
 
     def adjQ(self):
@@ -212,8 +214,13 @@ class Quaternion(object):
         ''' Reciprocal (inverse) of a Quaternion'''
         qbar = self.adj()
         norm2 = self.norm()**2
-        return Quaternion(qbar.q0/norm2, qbar.q/norm2)
-    
+
+        with np.errstate(divide='raise', invalid='raise'):
+            try:
+                return Quaternion(qbar.q0/norm2, qbar.q/norm2)
+            except FloatingPointError:
+                print(f"Error inverting quaternion with norm {norm2}. Quaternion: {self}")
+                raise
     
     def R(self):
         ''' From Peter Corke's Matlab robotics toolbox'''

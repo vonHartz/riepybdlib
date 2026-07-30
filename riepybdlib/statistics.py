@@ -189,7 +189,7 @@ class Gaussian(object):
         try:
             dist = ( dist * np.linalg.solve(self.sigma,dist.T).T ).sum(axis=(dist.ndim-1))
         except np.linalg.LinAlgError:
-            logger.warning('Singular matrix, adding diag constant', filter=False)
+            logger.warning('Singular matrix in prob, adding diag constant', filter=False)
             try:
                 diag = np.diag([1e-20] * self.sigma.shape[0])
                 dist = ( dist * np.linalg.solve(self.sigma + diag,dist.T).T ).sum(axis=(dist.ndim-1)) 
@@ -456,7 +456,7 @@ class Gaussian(object):
         try:
             Lambda    = np.linalg.inv(gtmp.sigma)
         except np.linalg.LinAlgError:
-            logger.warning("Singular matrix, adding diag constant", filter=False)
+            logger.warning("Singular matrix in condition, adding diag constant", filter=False)
             Lambda = np.linalg.inv(gtmp.sigma + np.eye(gtmp.sigma.shape[0])*1e-20)
 
         ran_in  = man.get_tangent_indices(i_in)
@@ -529,12 +529,12 @@ class Gaussian(object):
         try:
             lambda_s = np.linalg.inv(sigma_s)
         except np.linalg.LinAlgError:
-            logger.warning("Singular matrix, adding diag constant", filter=False)
+            logger.warning("Singular matrix in mul, adding diag constant", filter=False)
             lambda_s = np.linalg.inv(sigma_s + np.eye(sigma_s.shape[0])*diag_const)
         try:
             lambda_o = np.linalg.inv(sigma_o)
         except np.linalg.LinAlgError:
-            logger.warning("Singular matrix, adding diag constant", filter=False)
+            logger.warning("Singular matrix in mul, adding diag constant", filter=False)
             lambda_o = np.linalg.inv(sigma_o + np.eye(sigma_o.shape[0])*diag_const)
 
         # print("----------- Lambda ------------")
@@ -567,7 +567,7 @@ class Gaussian(object):
             try:
                 sigma = np.linalg.inv( lambda_sn + lambda_on)  # TODO: add regularization?
             except np.linalg.LinAlgError:
-                logger.warning("Singular matrix, adding diag constant", filter=False)
+                logger.warning("Singular matrix in mul, adding diag constant", filter=False)
                 sigma = np.linalg.inv( lambda_sn + lambda_on + np.eye(lambda_sn.shape[0])*diag_const )
 
             # print(sigma)
@@ -761,7 +761,7 @@ class GMM:
         try:
             prec = np.linalg.inv(self.sigma)
         except np.linalg.LinAlgError:
-            logger.warning("Singular matrix, adding diag constant", filter=False)
+            logger.warning("Singular matrix in precision, adding diag constant", filter=False)
             prec = np.linalg.inv(self.sigma + np.eye(self.sigma.shape[1])*1e-20)
 
         return prec

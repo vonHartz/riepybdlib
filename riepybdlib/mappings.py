@@ -245,15 +245,15 @@ def quat_log_e(g, reg=1e-6, arccos_func=arccos_cont):
         #                           "single values yet.")
         # Single mode:
         if abs(g.q0 - 1.0)>reg:
-            # res = arccos_func(g.q0)* (g.q/np.linalg.norm(g.q))
-            # if np.isnan(res).any():
-            #     print("g.q ", g.q)
-            #     print("g.q0 ", g.q0)
-            #     print(arccos_func(g.q0))
-            #     print((g.q/np.linalg.norm(g.q)))
-            #     raise ValueError("quat_log_e: nan in tangent values.")
-            # return res
-            return arccos_func(g.q0)* (g.q/np.linalg.norm(g.q))
+            res = arccos_func(g.q0)* (g.q/np.linalg.norm(g.q))
+            if np.isnan(res).any():
+                print("g.q ", g.q)
+                print("g.q0 ", g.q0)
+                print(arccos_func(g.q0))
+                print((g.q/np.linalg.norm(g.q)))
+                raise ValueError("quat_log_e: nan in tangent values.")
+            return res
+            # return arccos_func(g.q0)* (g.q/np.linalg.norm(g.q))
         else:
             return np.zeros(3)
     
