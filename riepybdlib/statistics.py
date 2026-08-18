@@ -769,6 +769,25 @@ class GMM:
     @property
     def precision_det(self):
         return np.linalg.det(self.precision)
+
+    @property
+    def weighted_precision_det(self, weights: np.ndarray):
+        assert len(weights.shape) == 2
+
+        active_indices = np.where(weights > 0)[0]
+        D_active = len(active_indices)
+
+        if D_active == 0:
+            return 0.0
+
+        w_sub = weights[active_indices][:, active_indices]
+        prec_sub = self.precision[..., active_indices, :][..., :, active_indices]
+        weighted_precision = w_sub @ prec_sub @ w_sub.T
+
+        det = np.prod(np.diagonal(weighted_precision, axis1=-2, axis2=-1), axis=-1)
+
+        return det
+
     
     # @property
     # def precision_eigmin(self):
