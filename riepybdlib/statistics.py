@@ -770,7 +770,6 @@ class GMM:
     def precision_det(self):
         return np.linalg.det(self.precision)
 
-    @property
     def weighted_precision_det(self, weights: np.ndarray):
         assert len(weights.shape) == 2
 
