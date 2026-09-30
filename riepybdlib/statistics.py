@@ -779,6 +779,8 @@ class GMM:
         if D_active == 0:
             return 0.0
 
+        assert weights.shape == self.precision.shape[-2:]
+
         w_sub = weights[active_indices][:, active_indices]
         prec_sub = self.precision[..., active_indices, :][..., :, active_indices]
         weighted_precision = w_sub @ prec_sub @ w_sub.T
