@@ -369,10 +369,12 @@ def quat_parallel_transport(Xg, g, h, t=1, arccos_func=arccos_cont):
         
     # Compute relative rotation:
     R = Ie.dot(Ie_p.T)
-    
-    if np.sign(np.trace(R)) ==-1:
-        # Change sign, to ensure proper rotation
-        R = -R
+
+    assert np.allclose(R.T @ R, np.eye(3), atol=1e-6)
+    assert np.isclose(np.linalg.det(R), 1.0, atol=1e-6)
+    # if np.sign(np.trace(R)) ==-1:
+    #     # Change sign, to ensure proper rotation
+    #     R = -R
                    
     # print("Xg", Xg)
     # print("R", R)
