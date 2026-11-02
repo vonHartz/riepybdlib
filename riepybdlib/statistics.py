@@ -504,68 +504,68 @@ class Gaussian(object):
 
     # @logger.contextualize(filter=False)
     def __mul__(self, other):
-            '''Compute the product of Gaussians safely across any manifold composition.''' 
-            max_it      = 50
-            conv_thresh = 1e-5
+        '''Compute the product of Gaussians safely across any manifold composition.''' 
+        max_it      = 50
+        conv_thresh = 1e-5
 
-            man = self.manifold
-            Log = man.log
-            Exp = man.exp
+        man = self.manifold
+        Log = man.log
+        Exp = man.exp
 
-            fR = lambda g, h: man.parallel_transport(np.eye(man.n_dimT), g, h).T
+        fR = lambda g, h: man.parallel_transport(np.eye(man.n_dimT), g, h).T
+        
+        sigma_s = self.sigma
+        mu_s = self.mu
+
+        sigma_o = other.sigma
+        
+        # Align quaternion submanifolds of 'other' to match 'self' safely
+        mu_o = self.align_quaternions(other.mu)
+
+        diag_const = 1e-8
+
+        try:
+            lambda_s = np.linalg.inv(sigma_s)
+        except np.linalg.LinAlgError:
+            logger.warning("Singular matrix in mul, adding diag constant", filter=False)
+            lambda_s = np.linalg.inv(sigma_s + np.eye(sigma_s.shape[0]) * diag_const)
             
-            sigma_s = self.sigma
-            mu_s = self.mu
+        try:
+            lambda_o = np.linalg.inv(sigma_o)
+        except np.linalg.LinAlgError:
+            logger.warning("Singular matrix in mul, adding diag constant", filter=False)
+            lambda_o = np.linalg.inv(sigma_o + np.eye(sigma_o.shape[0]) * diag_const)
 
-            sigma_o = other.sigma
+        mu = mu_s # Initial guess
+        it = 0
+        diff = 1
+        
+        while diff > conv_thresh:
+            Rs = fR(mu_s, mu)
+            lambda_sn = Rs.dot(lambda_s.dot(Rs.T))
             
-            # Align quaternion submanifolds of 'other' to match 'self' safely
-            mu_o = self.align_quaternions(other.mu)
-
-            diag_const = 1e-8
+            Ro = fR(mu_o, mu)
+            lambda_on = Ro.dot(lambda_o.dot(Ro.T))
 
             try:
-                lambda_s = np.linalg.inv(sigma_s)
+                sigma = np.linalg.inv(lambda_sn + lambda_on)
             except np.linalg.LinAlgError:
                 logger.warning("Singular matrix in mul, adding diag constant", filter=False)
-                lambda_s = np.linalg.inv(sigma_s + np.eye(sigma_s.shape[0]) * diag_const)
-                
-            try:
-                lambda_o = np.linalg.inv(sigma_o)
-            except np.linalg.LinAlgError:
-                logger.warning("Singular matrix in mul, adding diag constant", filter=False)
-                lambda_o = np.linalg.inv(sigma_o + np.eye(sigma_o.shape[0]) * diag_const)
+                sigma = np.linalg.inv(lambda_sn + lambda_on + np.eye(lambda_sn.shape[0]) * diag_const)
 
-            mu = mu_s # Initial guess
-            it = 0
-            diff = 1
-            
-            while diff > conv_thresh:
-                Rs = fR(mu_s, mu)
-                lambda_sn = Rs.dot(lambda_s.dot(Rs.T))
-                
-                Ro = fR(mu_o, mu)
-                lambda_on = Ro.dot(lambda_o.dot(Ro.T))
+            d_self  = lambda_sn.dot(Log(mu_s, mu))
+            d_other = lambda_on.dot(Log(mu_o, mu))
 
-                try:
-                    sigma = np.linalg.inv(lambda_sn + lambda_on)
-                except np.linalg.LinAlgError:
-                    logger.warning("Singular matrix in mul, adding diag constant", filter=False)
-                    sigma = np.linalg.inv(lambda_sn + lambda_on + np.eye(lambda_sn.shape[0]) * diag_const)
+            delta = sigma.dot(d_self + d_other)
+            mu = Exp(delta, mu)
 
-                d_self  = lambda_sn.dot(Log(mu_s, mu))
-                d_other = lambda_on.dot(Log(mu_o, mu))
+            diff = sum(delta * delta)
+            it += 1
+            if it > max_it:
+                logger.warning('Product did not converge in {0} iterations.'.format(max_it))
+                break
 
-                delta = sigma.dot(d_self + d_other)
-                mu = Exp(delta, mu)
-
-                diff = sum(delta * delta)
-                it += 1
-                if it > max_it:
-                    logger.warning('Product did not converge in {0} iterations.'.format(max_it))
-                    break
-
-            return Gaussian(self.manifold, mu, sigma)
+        return Gaussian(self.manifold, mu, sigma)
 
     def tangent_action(self,A):
         ''' Perform Transformation A, to the tangent space of the Gaussian'''
@@ -711,36 +711,36 @@ class Gaussian(object):
         return NotImplemented
 
     def align_quaternions(self, other_mu):
-            """
-            Aligns any quaternion submanifolds between self.mu and other_mu to ensure
-            they are in the same hemisphere,
-            without affecting Euclidean or other manifold components.
-            """
-            man = self.manifold
-            submanifolds = man.get_submanifolds()
-            
-            # Convert means to flat numpy arrays for easy slicing
-            mu_s_np = man.manifold_to_np(self.mu)
-            mu_o_np = man.manifold_to_np(other_mu)
-            
-            ind = 0
-            for subman in submanifolds:
-                # is_quat = (subman.n_dimM == 4 and subman.n_dimT == 3) or ('Quaternion' in subman.name)
-                is_quat = 'Quaternion' in subman.name
+        """
+        Aligns any quaternion submanifolds between self.mu and other_mu to ensure
+        they are in the same hemisphere,
+        without affecting Euclidean or other manifold components.
+        """
+        man = self.manifold
+        submanifolds = man.get_submanifolds()
+        
+        # Convert means to flat numpy arrays for easy slicing
+        mu_s_np = man.manifold_to_np(self.mu)
+        mu_o_np = man.manifold_to_np(other_mu)
+        
+        ind = 0
+        for subman in submanifolds:
+            # is_quat = (subman.n_dimM == 4 and subman.n_dimT == 3) or ('Quaternion' in subman.name)
+            is_quat = 'QUAT' in subman.name and False
 
-                slice_indices = slice(ind, ind + subman.n_dimM)
+            slice_indices = slice(ind, ind + subman.n_dimM)
+            
+            if is_quat:
+                q_s = mu_s_np[slice_indices]
+                q_o = mu_o_np[slice_indices]
                 
-                if is_quat:
-                    q_s = mu_s_np[slice_indices]
-                    q_o = mu_o_np[slice_indices]
+                # If on opposite hemispheres, align other to self
+                if np.dot(q_s, q_o) < 0:
+                    mu_o_np[slice_indices] = -q_o
                     
-                    # If on opposite hemispheres, align other to self
-                    if np.dot(q_s, q_o) < 0:
-                        mu_o_np[slice_indices] = -q_o
-                        
-                ind += subman.n_dimM
-                
-            return man.np_to_manifold(mu_o_np)
+            ind += subman.n_dimM
+            
+        return man.np_to_manifold(mu_o_np)
 
 
 class GMM:
