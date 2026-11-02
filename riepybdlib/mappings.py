@@ -169,7 +169,7 @@ quat_id = ar.Quaternion(1, np.zeros(3) )
 def quat_action(x,g,h):
     return h*g.i()*x
 
-def quat_log_e(g, reg=1e-6, arccos_func=np.arccos):
+def quat_log_e(g, reg=1e-6, arccos_func=arccos_cont):
     d_added = False
     if type(g) is list:
         # Batch mode:
@@ -294,7 +294,7 @@ def quat_exp_e(g_tan, reg=1e-6):
         else:
             return ar.Quaternion(1, np.zeros(3) )
 
-def quat_log(x,g, reg=1e-6, arccos_func=np.arccos):
+def quat_log(x,g, reg=1e-6, arccos_func=arccos_cont):
     return quat_log_e(g.i()*x, reg, arccos_func=arccos_func)
 
 quat_log_star = partial(quat_log, arccos_func=arccos_star)
@@ -302,7 +302,7 @@ quat_log_star = partial(quat_log, arccos_func=arccos_star)
 def quat_exp(x,g, reg=1e-6):
     return g*quat_exp_e(x, reg)
 
-def quat_parallel_transport(Xg, g, h, t=1, arccos_func=np.arccos):
+def quat_parallel_transport(Xg, g, h, t=1, arccos_func=arccos_cont):
     ''' Parallel transport of vectors in X from h to g*t, 0 <= t <= 1
         Implementation is modified version of the one reported in
         Optimization algorithms on Manifolds:
