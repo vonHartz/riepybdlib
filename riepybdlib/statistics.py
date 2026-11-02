@@ -520,7 +520,8 @@ class Gaussian(object):
         sigma_o = other.sigma
         
         # Align quaternion submanifolds of 'other' to match 'self' safely
-        mu_o = self.align_quaternions(other.mu)
+        # mu_o = self.align_quaternions(other.mu)
+        mu_o = other.mu
 
         diag_const = 1e-8
 

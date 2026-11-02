@@ -314,9 +314,9 @@ def quat_parallel_transport(Xg, g, h, t=1, arccos_func=np.arccos):
     gnp = g.to_nparray()
     hnp = h.to_nparray()
 
-    if np.dot(gnp, hnp) < 0:
-        h = -h
-        hnp = -hnp
+    # if np.dot(gnp, hnp) < 0:
+    #     h = -h
+    #     hnp = -hnp
 
     # Get intermediate position on geodesic between g and h 
     if t<1:
