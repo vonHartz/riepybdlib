@@ -81,6 +81,11 @@ class Quaternion(object):
         
     def __neg__(self):
         return Quaternion(-self.q0,-self.q)
+
+    def negate_(self):
+        self.q0 = -self.q0
+        self.q = -self.q
+        return self
     
     def __add__(self,other):
         '''
