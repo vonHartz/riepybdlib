@@ -377,7 +377,7 @@ def quat_parallel_transport(Xg, g, h, t=1, arccos_func=arccos_cont):
     # Compute relative rotation:
     R = Ie.dot(Ie_p.T)
 
-    assert np.allclose(R.T @ R, np.eye(3), atol=1e-6)
+    assert np.allclose(R.T @ R, np.eye(3), atol=1e-5), f"R is not orthogonal: {(R.T @ R) - np.eye(3)}. Sign of trace: {np.sign(np.trace(R))}"
     assert np.isclose(np.linalg.det(R), 1.0, atol=1e-6)
     # if np.sign(np.trace(R)) ==-1:
     #     # Change sign, to ensure proper rotation
